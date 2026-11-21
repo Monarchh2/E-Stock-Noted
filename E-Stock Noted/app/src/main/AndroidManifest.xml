@@ -36,6 +36,15 @@
             android:name=".StokHareketActivity"
             android:exported="false" />
         <activity
+            android:name=".RaporlarActivity"
+            android:exported="false" />
+        <activity
+            android:name=".TedarikciActivity"
+            android:exported="false" />
+        <activity
+            android:name=".AdminYonetimActivity"
+            android:exported="false" />
+        <activity
             android:name=".MainActivity"
             android:exported="true"
             android:theme="@style/Theme.FinalProkesi.Navy">

@@ -13,20 +13,16 @@ class KullaniciGirisActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SecurityWindowHelper.applySecureFlag(this)
+
         binding = ActivityKullaniciGirisBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         dbHelper = DatabaseHelper(this)
         sessionManager = SessionManager(this)
 
-        binding.toolbar.setNavigationOnClickListener {
-            finish()
-        }
-
-        binding.btnLogin.setOnClickListener {
-            attemptLogin()
-        }
-
+        binding.toolbar.setNavigationOnClickListener { finish() }
+        binding.btnLogin.setOnClickListener { attemptLogin() }
         binding.btnRegister.setOnClickListener {
             startActivity(Intent(this, KullaniciKayitActivity::class.java))
         }
@@ -38,11 +34,26 @@ class KullaniciGirisActivity : AppCompatActivity() {
 
         binding.tilUsername.error = if (username.isEmpty()) getString(R.string.err_required_field) else null
         binding.tilPassword.error = if (password.isBlank()) getString(R.string.err_required_field) else null
-
         if (username.isEmpty() || password.isBlank()) return
 
-        val user = dbHelper.authenticateUser(username, password, requiredRole = UserRole.USER)
+        val lockStatus = LoginRateLimiter.shared.checkStatus(username)
+        if (lockStatus.isLocked) {
+            Toast.makeText(
+                this,
+                getString(R.string.msg_account_locked, lockStatus.remainingSeconds),
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        val user = dbHelper.authenticateUser(
+            username = username,
+            password = password,
+            allowedRoles = setOf(UserRole.USER, UserRole.DEPO)
+        )
         if (user != null) {
+            LoginRateLimiter.shared.recordSuccess(username)
+            dbHelper.guvenlikKaydiEkle("GIRIS", user.username, "Kullanıcı girişi (${user.role.name})", true)
             sessionManager.saveSession(user)
             Toast.makeText(this, R.string.msg_login_success, Toast.LENGTH_SHORT).show()
             val intent = Intent(this, StokBilgiActivity::class.java).apply {
@@ -50,7 +61,22 @@ class KullaniciGirisActivity : AppCompatActivity() {
             }
             startActivity(intent)
         } else {
-            Toast.makeText(this, R.string.msg_login_failed, Toast.LENGTH_SHORT).show()
+            val afterFail = LoginRateLimiter.shared.recordFailure(username)
+            dbHelper.guvenlikKaydiEkle(
+                if (afterFail.isLocked) "HESAP_KILIT" else "HATALI_GIRIS",
+                username,
+                "Kullanıcı giriş denemesi başarısız (${afterFail.failedAttempts})",
+                false
+            )
+            if (afterFail.isLocked) {
+                Toast.makeText(
+                    this,
+                    getString(R.string.msg_account_locked, afterFail.remainingSeconds),
+                    Toast.LENGTH_LONG
+                ).show()
+            } else {
+                Toast.makeText(this, R.string.msg_login_failed, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 }

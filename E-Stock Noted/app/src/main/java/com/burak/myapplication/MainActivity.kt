@@ -13,10 +13,13 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         sessionManager = SessionManager(this)
 
-        if (sessionManager.isLoggedIn()) {
+        if (sessionManager.isLoggedIn() && !sessionManager.isSessionExpired()) {
+            sessionManager.touchActivity()
             startActivity(Intent(this, StokBilgiActivity::class.java))
             finish()
             return
+        } else if (sessionManager.isLoggedIn()) {
+            sessionManager.clearSession()
         }
 
         binding = ActivityMainBinding.inflate(layoutInflater)

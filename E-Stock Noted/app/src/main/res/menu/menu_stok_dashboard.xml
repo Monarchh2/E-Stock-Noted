@@ -2,15 +2,33 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
+        android:id="@+id/action_reports"
+        android:icon="@drawable/ic_chart"
+        android:title="@string/menu_reports"
+        app:showAsAction="always" />
+    <item
         android:id="@+id/action_history"
         android:icon="@drawable/ic_history"
         android:title="@string/menu_history"
         app:showAsAction="ifRoom" />
     <item
+        android:id="@+id/action_suppliers"
+        android:title="@string/menu_suppliers"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_export_pdf"
+        android:icon="@drawable/ic_pdf"
+        android:title="@string/menu_export_pdf"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_export_csv"
         android:icon="@drawable/ic_share"
         android:title="@string/menu_export_csv"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_admin_panel"
+        android:title="@string/menu_admin_panel"
+        app:showAsAction="never" />
     <item
         android:id="@+id/action_change_password"
         android:title="@string/menu_change_password"

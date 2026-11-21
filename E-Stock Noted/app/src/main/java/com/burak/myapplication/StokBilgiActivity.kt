@@ -29,51 +29,93 @@ class StokBilgiActivity : AppCompatActivity() {
     private var currentFilter: StokFiltre = StokFiltre.TUMU
     private var currentCategory: String? = null
     private var currentSort: StokSiralama = StokSiralama.SON_GUNCELLEME
+    private var canManageStock: Boolean = false
     private var isAdmin: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SecurityWindowHelper.applySecureFlag(this)
+
         sessionManager = SessionManager(this)
-        if (!sessionManager.isLoggedIn()) {
+        if (!sessionManager.isLoggedIn() || sessionManager.isSessionExpired()) {
+            sessionManager.clearSession()
             redirectToMain()
             return
         }
+        sessionManager.touchActivity()
 
         binding = ActivityStokBilgiBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         database = DatabaseHelper(this)
+        canManageStock = sessionManager.canManageStock()
         isAdmin = sessionManager.isAdmin()
 
         setupToolbar()
         setupRecyclerView()
         setupFiltersAndSearch()
         setupFab()
+
+        if (sessionManager.mustChangePassword()) {
+            Toast.makeText(this, R.string.msg_must_change_password, Toast.LENGTH_LONG).show()
+            showChangePasswordDialog()
+        }
     }
 
     override fun onResume() {
         super.onResume()
+        if (!::sessionManager.isInitialized) return
+        if (!sessionManager.isLoggedIn() || sessionManager.isSessionExpired()) {
+            sessionManager.clearSession()
+            Toast.makeText(this, R.string.msg_session_expired, Toast.LENGTH_LONG).show()
+            redirectToMain()
+            return
+        }
+        sessionManager.touchActivity()
         if (::database.isInitialized) {
             refreshData()
         }
     }
 
     private fun setupToolbar() {
-        val roleLabel = getString(if (isAdmin) R.string.role_admin else R.string.role_user_readonly)
+        val roleLabel = when (sessionManager.getRole()) {
+            UserRole.ADMIN -> getString(R.string.role_admin)
+            UserRole.DEPO -> getString(R.string.role_depo)
+            UserRole.USER -> getString(R.string.role_user_readonly)
+        }
         binding.toolbar.subtitle = getString(
             R.string.subtitle_session_format,
             sessionManager.getUsername(),
             roleLabel
         )
 
+        binding.toolbar.menu.findItem(R.id.action_admin_panel)?.isVisible = isAdmin
+
         binding.toolbar.setOnMenuItemClickListener { menuItem ->
+            sessionManager.touchActivity()
             when (menuItem.itemId) {
+                R.id.action_reports -> {
+                    startActivity(Intent(this, RaporlarActivity::class.java))
+                    true
+                }
                 R.id.action_history -> {
                     startActivity(Intent(this, StokHareketActivity::class.java))
                     true
                 }
+                R.id.action_suppliers -> {
+                    startActivity(Intent(this, TedarikciActivity::class.java))
+                    true
+                }
+                R.id.action_export_pdf -> {
+                    exportPdfReport()
+                    true
+                }
                 R.id.action_export_csv -> {
                     exportCsvReport()
+                    true
+                }
+                R.id.action_admin_panel -> {
+                    startActivity(Intent(this, AdminYonetimActivity::class.java))
                     true
                 }
                 R.id.action_change_password -> {
@@ -91,21 +133,24 @@ class StokBilgiActivity : AppCompatActivity() {
 
     private fun setupRecyclerView() {
         adapter = StokListAdapter(
-            isAdmin = isAdmin,
+            canManageStock = canManageStock,
             onItemClick = { urun ->
-                if (isAdmin) {
+                sessionManager.touchActivity()
+                if (canManageStock) {
                     showUpdateDeleteDialog(urun)
                 } else {
                     showReadOnlyDetailDialog(urun)
                 }
             },
             onAdjustQuantity = { urun, delta ->
-                if (isAdmin) {
+                sessionManager.touchActivity()
+                if (canManageStock) {
                     adjustStockQuantity(urun, delta)
                 }
             },
             onBulkAdjust = { urun ->
-                if (isAdmin) {
+                sessionManager.touchActivity()
+                if (canManageStock) {
                     showBulkStockAdjustDialog(urun)
                 }
             }
@@ -129,17 +174,12 @@ class StokBilgiActivity : AppCompatActivity() {
             applyFilterAndSort()
         }
 
-        binding.btnCategoryFilter.setOnClickListener {
-            showCategoryFilterDialog()
-        }
-
-        binding.btnSort.setOnClickListener {
-            showSortDialog()
-        }
+        binding.btnCategoryFilter.setOnClickListener { showCategoryFilterDialog() }
+        binding.btnSort.setOnClickListener { showSortDialog() }
     }
 
     private fun setupFab() {
-        binding.fabAddProduct.visibility = if (isAdmin) View.VISIBLE else View.GONE
+        binding.fabAddProduct.visibility = if (canManageStock) View.VISIBLE else View.GONE
         binding.fabAddProduct.setOnClickListener {
             startActivity(Intent(this, StokActivity::class.java))
         }
@@ -187,7 +227,7 @@ class StokBilgiActivity : AppCompatActivity() {
             if (allItems.isEmpty()) {
                 binding.tvEmptyTitle.setText(R.string.empty_stock_title)
                 binding.tvEmptyDesc.setText(
-                    if (isAdmin) R.string.empty_stock_desc_admin else R.string.empty_stock_desc_user
+                    if (canManageStock) R.string.empty_stock_desc_admin else R.string.empty_stock_desc_user
                 )
             } else {
                 binding.tvEmptyTitle.setText(R.string.empty_search_title)
@@ -200,7 +240,7 @@ class StokBilgiActivity : AppCompatActivity() {
     }
 
     private fun adjustStockQuantity(urun: UrunModel, delta: Int) {
-        if (urun.adet + delta < 0) {
+        if (SecuritySanitizer.safeAddQuantity(urun.adet, delta) == null) {
             Toast.makeText(this, R.string.msg_stock_cannot_be_negative, Toast.LENGTH_SHORT).show()
             return
         }
@@ -228,7 +268,9 @@ class StokBilgiActivity : AppCompatActivity() {
             val amount = ValidationUtils.parsePositiveInt(
                 dialogBinding.etAdjustAmount.text?.toString().orEmpty()
             ) ?: 0
-            val newQty = if (isIncoming) urun.adet + amount else (urun.adet - amount).coerceAtLeast(0)
+            val delta = if (isIncoming) amount else -amount
+            val newQty = SecuritySanitizer.safeAddQuantity(urun.adet, delta)
+                ?: if (isIncoming) Int.MAX_VALUE else 0
             dialogBinding.tvAdjustPreview.text =
                 getString(R.string.label_adjust_preview_format, urun.adet, newQty)
         }
@@ -371,9 +413,12 @@ class StokBilgiActivity : AppCompatActivity() {
                     newPassword = result.newPassword
                 )
                 if (updated) {
+                    sessionManager.markPasswordChanged()
+                    database.guvenlikKaydiEkle("SIFRE_DEGISIM", sessionManager.getUsername(), "Şifre güncellendi", true)
                     Toast.makeText(this, R.string.msg_password_changed, Toast.LENGTH_SHORT).show()
                     dialog.dismiss()
                 } else {
+                    database.guvenlikKaydiEkle("SIFRE_DEGISIM", sessionManager.getUsername(), "Mevcut şifre hatalı", false)
                     dialogBinding.tilCurrentPassword.error =
                         getString(R.string.msg_current_password_wrong)
                 }
@@ -385,14 +430,20 @@ class StokBilgiActivity : AppCompatActivity() {
 
     private fun showReadOnlyDetailDialog(urun: UrunModel) {
         val description = urun.aciklama.ifBlank { getString(R.string.label_no_description) }
+        val supplier = urun.tedarikci.ifBlank { "-" }
         val message = getString(
-            R.string.dialog_detail_body_format,
+            R.string.dialog_detail_commercial_format,
             urun.ad,
             urun.kod,
             urun.kategori,
+            urun.depoKonum,
+            supplier,
             urun.adet,
             urun.minStok,
+            StockAnalytics.formatCurrency(urun.alisFiyati),
             StockAnalytics.formatCurrency(urun.birimFiyat),
+            urun.kdvOrani,
+            StockAnalytics.formatPercent(urun.karMarjiYuzde),
             StockAnalytics.formatCurrency(urun.toplamDeger),
             description
         )
@@ -406,21 +457,28 @@ class StokBilgiActivity : AppCompatActivity() {
     private fun showUpdateDeleteDialog(secilenUrun: UrunModel) {
         val dialogBinding = DialogUpdateDeleteBinding.inflate(layoutInflater)
 
-        val categoryAdapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_dropdown_item_1line,
-            UrunModel.DEFAULT_CATEGORIES
+        dialogBinding.actvEditKategori.setAdapter(
+            ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, UrunModel.DEFAULT_CATEGORIES)
         )
-        dialogBinding.actvEditKategori.setAdapter(categoryAdapter)
+        val suppliers = database.tedarikcileriGetir().map { it.firmaAdi }
+        dialogBinding.actvEditTedarikci.setAdapter(
+            ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, suppliers)
+        )
 
         dialogBinding.etEditAd.setText(secilenUrun.ad)
         dialogBinding.etEditKod.setText(secilenUrun.kod)
         dialogBinding.actvEditKategori.setText(secilenUrun.kategori, false)
         dialogBinding.etEditAdet.setText(secilenUrun.adet.toString())
         dialogBinding.etEditMinStok.setText(secilenUrun.minStok.toString())
+        dialogBinding.etEditAlisFiyati.setText(
+            if (secilenUrun.alisFiyati == 0.0) "" else secilenUrun.alisFiyati.toString()
+        )
         dialogBinding.etEditBirimFiyat.setText(
             if (secilenUrun.birimFiyat == 0.0) "" else secilenUrun.birimFiyat.toString()
         )
+        dialogBinding.etEditKdvOrani.setText(secilenUrun.kdvOrani.toString())
+        dialogBinding.etEditDepoKonum.setText(secilenUrun.depoKonum)
+        dialogBinding.actvEditTedarikci.setText(secilenUrun.tedarikci, false)
         dialogBinding.etEditAciklama.setText(secilenUrun.aciklama)
 
         val dialog = MaterialAlertDialogBuilder(this)
@@ -442,14 +500,20 @@ class StokBilgiActivity : AppCompatActivity() {
                     adetRaw = dialogBinding.etEditAdet.text?.toString().orEmpty(),
                     minStokRaw = dialogBinding.etEditMinStok.text?.toString().orEmpty(),
                     birimFiyatRaw = dialogBinding.etEditBirimFiyat.text?.toString().orEmpty(),
-                    aciklamaRaw = dialogBinding.etEditAciklama.text?.toString().orEmpty()
+                    aciklamaRaw = dialogBinding.etEditAciklama.text?.toString().orEmpty(),
+                    alisFiyatiRaw = dialogBinding.etEditAlisFiyati.text?.toString().orEmpty(),
+                    kdvOraniRaw = dialogBinding.etEditKdvOrani.text?.toString().orEmpty(),
+                    tedarikciRaw = dialogBinding.actvEditTedarikci.text?.toString().orEmpty(),
+                    depoKonumRaw = dialogBinding.etEditDepoKonum.text?.toString().orEmpty()
                 )
 
                 dialogBinding.tilEditAd.error = errorMessage(result.adError)
                 dialogBinding.tilEditKod.error = errorMessage(result.kodError)
                 dialogBinding.tilEditAdet.error = errorMessage(result.adetError)
                 dialogBinding.tilEditMinStok.error = errorMessage(result.minStokError)
+                dialogBinding.tilEditAlisFiyati.error = errorMessage(result.alisFiyatiError)
                 dialogBinding.tilEditBirimFiyat.error = errorMessage(result.birimFiyatError)
+                dialogBinding.tilEditKdvOrani.error = errorMessage(result.kdvOraniError)
 
                 if (!result.isValid) return@setOnClickListener
 
@@ -468,7 +532,11 @@ class StokBilgiActivity : AppCompatActivity() {
                     yeniBirimFiyat = result.birimFiyat,
                     yeniUrunAciklama = result.aciklama,
                     yapanKullanici = sessionManager.getUsername(),
-                    hareketNotu = getString(R.string.note_manual_update)
+                    hareketNotu = getString(R.string.note_manual_update),
+                    yeniAlisFiyati = result.alisFiyati,
+                    yeniKdvOrani = result.kdvOrani,
+                    yeniTedarikci = result.tedarikci,
+                    yeniDepoKonum = result.depoKonum
                 )
                 Toast.makeText(this, R.string.msg_product_updated, Toast.LENGTH_SHORT).show()
                 dialog.dismiss()
@@ -494,6 +562,36 @@ class StokBilgiActivity : AppCompatActivity() {
             }
             .setNegativeButton(R.string.btn_cancel, null)
             .show()
+    }
+
+    private fun exportPdfReport() {
+        if (allItems.isEmpty()) {
+            Toast.makeText(this, R.string.msg_export_empty, Toast.LENGTH_SHORT).show()
+            return
+        }
+        try {
+            val exportDir = File(cacheDir, "exports").apply { mkdirs() }
+            val pdfFile = File(exportDir, "e_stock_noted_rapor.pdf")
+            PdfReportGenerator.generateInventoryReport(
+                outputFile = pdfFile,
+                items = allItems,
+                generatedBy = sessionManager.getUsername()
+            )
+            val uri = FileProvider.getUriForFile(
+                this,
+                "${applicationContext.packageName}.fileprovider",
+                pdfFile
+            )
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/pdf"
+                putExtra(Intent.EXTRA_SUBJECT, getString(R.string.share_pdf_subject))
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(Intent.createChooser(shareIntent, getString(R.string.share_pdf_chooser)))
+        } catch (_: Exception) {
+            Toast.makeText(this, R.string.msg_pdf_failed, Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun exportCsvReport() {
@@ -528,6 +626,7 @@ class StokBilgiActivity : AppCompatActivity() {
             .setTitle(R.string.dialog_logout_title)
             .setMessage(R.string.dialog_logout_msg)
             .setPositiveButton(R.string.menu_logout) { _, _ ->
+                database.guvenlikKaydiEkle("CIKIS", sessionManager.getUsername(), "Oturum kapatıldı", true)
                 sessionManager.clearSession()
                 redirectToMain()
             }
@@ -545,12 +644,14 @@ class StokBilgiActivity : AppCompatActivity() {
 
     private fun errorMessage(error: ValidationError?): String? = when (error) {
         ValidationError.REQUIRED -> getString(R.string.err_required_field)
-        ValidationError.PASSWORD_TOO_SHORT -> getString(R.string.err_password_short)
+        ValidationError.PASSWORD_TOO_WEAK -> getString(R.string.err_password_weak)
         ValidationError.PASSWORD_MISMATCH -> getString(R.string.err_password_mismatch)
         ValidationError.INVALID_QUANTITY -> getString(R.string.err_invalid_quantity)
+        ValidationError.QUANTITY_OVERFLOW -> getString(R.string.err_quantity_overflow)
         ValidationError.INSUFFICIENT_STOCK -> getString(R.string.err_insufficient_stock)
         ValidationError.INVALID_MIN_STOCK -> getString(R.string.err_invalid_min_stock)
         ValidationError.INVALID_PRICE -> getString(R.string.err_invalid_price)
+        ValidationError.INVALID_VAT -> getString(R.string.err_invalid_vat)
         else -> null
     }
 }
