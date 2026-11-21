@@ -1,49 +1,60 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#053262"
+    android:fillViewport="true"
     tools:context=".MainActivity">
 
-    <ImageView
-        android:id="@+id/imageView"
-        android:layout_width="412dp"
-        android:layout_height="259dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.444"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.066"
-        app:srcCompat="@drawable/e_stock" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="24dp">
 
-    <Button
-        android:id="@+id/kulGiris"
-        android:layout_width="202dp"
-        android:layout_height="53dp"
-        android:layout_marginTop="84dp"
-        android:backgroundTint="#2AB89C"
-        android:onClick="onKulGirisClick"
-        android:text="Kullanıcı Giriş"
-        android:textColor="#F1ECEC"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.497"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/imageView" />
+        <ImageView
+            android:id="@+id/ivLogo"
+            android:layout_width="match_parent"
+            android:layout_height="220dp"
+            android:layout_marginBottom="12dp"
+            android:contentDescription="@string/cd_app_logo"
+            android:scaleType="fitCenter"
+            app:srcCompat="@drawable/e_stock" />
 
-    <Button
-        android:id="@+id/yetgiris"
-        android:layout_width="208dp"
-        android:layout_height="52dp"
-        android:layout_marginTop="80dp"
-        android:backgroundTint="#2AB89C"
-        android:onClick="onYetGirisClick"
-        android:text="Yetkili Giriş"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.512"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/kulGiris" />
+        <TextView
+            android:id="@+id/tvTagline"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="36dp"
+            android:gravity="center"
+            android:text="@string/app_tagline"
+            android:textColor="@color/text_on_navy_muted"
+            android:textSize="15sp" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnKullaniciGiris"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginBottom="16dp"
+            android:text="@string/btn_user_login"
+            android:textColor="@color/text_on_navy"
+            android:textSize="16sp"
+            app:backgroundTint="@color/brand_teal"
+            app:cornerRadius="14dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnYetkiliGiris"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="@string/btn_admin_login"
+            android:textColor="@color/text_on_navy"
+            android:textSize="16sp"
+            app:cornerRadius="14dp"
+            app:strokeColor="@color/brand_teal"
+            app:strokeWidth="2dp" />
+
+    </LinearLayout>
+</ScrollView>
