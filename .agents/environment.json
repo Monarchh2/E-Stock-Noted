@@ -1,0 +1,3 @@
+{
+  "install": "bash .agents/install-android-env.sh"
+}
