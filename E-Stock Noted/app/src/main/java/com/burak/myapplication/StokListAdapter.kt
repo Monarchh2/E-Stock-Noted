@@ -11,7 +11,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.burak.myapplication.databinding.ItemStokBinding
 
 class StokListAdapter(
-    private val isAdmin: Boolean,
+    private val canManageStock: Boolean,
     private val onItemClick: (UrunModel) -> Unit,
     private val onAdjustQuantity: (UrunModel, Int) -> Unit,
     private val onBulkAdjust: (UrunModel) -> Unit
@@ -31,7 +31,11 @@ class StokListAdapter(
         with(holder.binding) {
             tvUrunAd.text = item.ad
             tvUrunKod.text = context.getString(R.string.label_sku_format, item.kod)
-            tvKategori.text = item.kategori
+            tvKategori.text = context.getString(
+                R.string.subtitle_session_format,
+                item.kategori,
+                item.depoKonum
+            )
             tvAdet.text = context.resources.getQuantityString(
                 R.plurals.label_qty_format,
                 item.adet,
@@ -41,11 +45,17 @@ class StokListAdapter(
 
             val unitPrice = StockAnalytics.formatCurrency(item.birimFiyat)
             val totalValue = StockAnalytics.formatCurrency(item.toplamDeger)
-            tvFiyatBilgi.text = context.getString(
-                R.string.subtitle_session_format,
-                context.getString(R.string.label_unit_price_format, unitPrice),
-                context.getString(R.string.label_total_value_format, totalValue)
-            )
+            val unitLabel = context.getString(R.string.label_unit_price_format, unitPrice)
+            val totalLabel = context.getString(R.string.label_total_value_format, totalValue)
+            tvFiyatBilgi.text = if (item.alisFiyati > 0.0 && item.birimFiyat > 0.0) {
+                val marginLabel = context.getString(
+                    R.string.label_margin_format,
+                    StockAnalytics.formatPercent(item.karMarjiYuzde)
+                )
+                context.getString(R.string.label_price_with_margin_format, unitLabel, totalLabel, marginLabel)
+            } else {
+                context.getString(R.string.subtitle_session_format, unitLabel, totalLabel)
+            }
 
             if (item.aciklama.isNotBlank()) {
                 tvAciklama.text = item.aciklama
@@ -64,7 +74,7 @@ class StokListAdapter(
             tvStatusBadge.backgroundTintList =
                 ColorStateList.valueOf(ContextCompat.getColor(context, statusBgRes))
 
-            layoutQuickActions.visibility = if (isAdmin) View.VISIBLE else View.GONE
+            layoutQuickActions.visibility = if (canManageStock) View.VISIBLE else View.GONE
             btnDecrease.isEnabled = item.adet > 0
             btnDecrease.alpha = if (item.adet > 0) 1f else 0.4f
 

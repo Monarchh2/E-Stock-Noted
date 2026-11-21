@@ -13,19 +13,16 @@ class YetkiliGirisActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SecurityWindowHelper.applySecureFlag(this)
+
         binding = ActivityYetkiliGirisBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         dbHelper = DatabaseHelper(this)
         sessionManager = SessionManager(this)
 
-        binding.toolbar.setNavigationOnClickListener {
-            finish()
-        }
-
-        binding.btnAdminLogin.setOnClickListener {
-            attemptAdminLogin()
-        }
+        binding.toolbar.setNavigationOnClickListener { finish() }
+        binding.btnAdminLogin.setOnClickListener { attemptAdminLogin() }
     }
 
     private fun attemptAdminLogin() {
@@ -36,11 +33,26 @@ class YetkiliGirisActivity : AppCompatActivity() {
             if (username.isEmpty()) getString(R.string.err_required_field) else null
         binding.tilAdminPassword.error =
             if (password.isBlank()) getString(R.string.err_required_field) else null
-
         if (username.isEmpty() || password.isBlank()) return
 
-        val adminUser = dbHelper.authenticateUser(username, password, requiredRole = UserRole.ADMIN)
+        val lockStatus = LoginRateLimiter.shared.checkStatus(username)
+        if (lockStatus.isLocked) {
+            Toast.makeText(
+                this,
+                getString(R.string.msg_account_locked, lockStatus.remainingSeconds),
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        val adminUser = dbHelper.authenticateUser(
+            username = username,
+            password = password,
+            allowedRoles = setOf(UserRole.ADMIN, UserRole.DEPO)
+        )
         if (adminUser != null) {
+            LoginRateLimiter.shared.recordSuccess(username)
+            dbHelper.guvenlikKaydiEkle("YETKILI_GIRIS", adminUser.username, "Yetkili girişi (${adminUser.role.name})", true)
             sessionManager.saveSession(adminUser)
             Toast.makeText(this, R.string.msg_login_success, Toast.LENGTH_SHORT).show()
             val intent = Intent(this, StokBilgiActivity::class.java).apply {
@@ -48,7 +60,22 @@ class YetkiliGirisActivity : AppCompatActivity() {
             }
             startActivity(intent)
         } else {
-            Toast.makeText(this, R.string.msg_admin_login_failed, Toast.LENGTH_SHORT).show()
+            val afterFail = LoginRateLimiter.shared.recordFailure(username)
+            dbHelper.guvenlikKaydiEkle(
+                if (afterFail.isLocked) "HESAP_KILIT" else "HATALI_YETKILI_GIRIS",
+                username,
+                "Yetkili giriş denemesi başarısız (${afterFail.failedAttempts})",
+                false
+            )
+            if (afterFail.isLocked) {
+                Toast.makeText(
+                    this,
+                    getString(R.string.msg_account_locked, afterFail.remainingSeconds),
+                    Toast.LENGTH_LONG
+                ).show()
+            } else {
+                Toast.makeText(this, R.string.msg_admin_login_failed, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 }

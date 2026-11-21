@@ -7,19 +7,27 @@ data class ProductValidationResult(
     val adet: Int = 0,
     val minStok: Int = UrunModel.DEFAULT_MIN_STOCK,
     val birimFiyat: Double = 0.0,
+    val alisFiyati: Double = 0.0,
+    val kdvOrani: Int = UrunModel.DEFAULT_VAT_RATE,
+    val tedarikci: String = "",
+    val depoKonum: String = UrunModel.DEFAULT_WAREHOUSE,
     val aciklama: String = "",
     val adError: ValidationError? = null,
     val kodError: ValidationError? = null,
     val adetError: ValidationError? = null,
     val minStokError: ValidationError? = null,
-    val birimFiyatError: ValidationError? = null
+    val birimFiyatError: ValidationError? = null,
+    val alisFiyatiError: ValidationError? = null,
+    val kdvOraniError: ValidationError? = null
 ) {
     val isValid: Boolean
         get() = adError == null &&
             kodError == null &&
             adetError == null &&
             minStokError == null &&
-            birimFiyatError == null
+            birimFiyatError == null &&
+            alisFiyatiError == null &&
+            kdvOraniError == null
 }
 
 data class RegistrationValidationResult(
@@ -64,20 +72,36 @@ data class PasswordChangeValidationResult(
             confirmPasswordError == null
 }
 
+data class SupplierValidationResult(
+    val firmaAdi: String = "",
+    val yetkiliKisi: String = "",
+    val telefon: String = "",
+    val eposta: String = "",
+    val vergiNo: String = "",
+    val notlar: String = "",
+    val firmaAdiError: ValidationError? = null,
+    val epostaError: ValidationError? = null
+) {
+    val isValid: Boolean
+        get() = firmaAdiError == null && epostaError == null
+}
+
 enum class ValidationError {
     REQUIRED,
     INVALID_EMAIL,
-    PASSWORD_TOO_SHORT,
+    PASSWORD_TOO_WEAK,
     PASSWORD_MISMATCH,
     INVALID_QUANTITY,
+    QUANTITY_OVERFLOW,
     INSUFFICIENT_STOCK,
     INVALID_MIN_STOCK,
-    INVALID_PRICE
+    INVALID_PRICE,
+    INVALID_VAT
 }
 
 object ValidationUtils {
     private val EMAIL_REGEX = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
-    private const val MIN_PASSWORD_LENGTH = 4
+    private const val MAX_PRICE = 1_000_000_000.0
 
     fun parseNonNegativeInt(raw: String): Int? {
         val trimmed = raw.trim()
@@ -96,7 +120,11 @@ object ValidationUtils {
         if (trimmed.isEmpty()) return 0.0
         val normalized = trimmed.replace(',', '.')
         val parsed = normalized.toDoubleOrNull() ?: return null
-        return if (!parsed.isNaN() && !parsed.isInfinite() && parsed >= 0.0) parsed else null
+        return if (!parsed.isNaN() && !parsed.isInfinite() && parsed in 0.0..MAX_PRICE) {
+            parsed
+        } else {
+            null
+        }
     }
 
     fun isValidEmail(email: String): Boolean {
@@ -110,12 +138,18 @@ object ValidationUtils {
         adetRaw: String,
         minStokRaw: String,
         birimFiyatRaw: String,
-        aciklamaRaw: String
+        aciklamaRaw: String,
+        alisFiyatiRaw: String = "",
+        kdvOraniRaw: String = "",
+        tedarikciRaw: String = "",
+        depoKonumRaw: String = ""
     ): ProductValidationResult {
-        val ad = adRaw.trim()
-        val kod = kodRaw.trim()
-        val kategori = kategoriRaw.trim().ifEmpty { UrunModel.DEFAULT_CATEGORY }
-        val aciklama = aciklamaRaw.trim()
+        val ad = SecuritySanitizer.sanitizeText(adRaw)
+        val kod = SecuritySanitizer.sanitizeText(kodRaw, 60)
+        val kategori = SecuritySanitizer.sanitizeText(kategoriRaw, 60).ifEmpty { UrunModel.DEFAULT_CATEGORY }
+        val tedarikci = SecuritySanitizer.sanitizeText(tedarikciRaw, 80)
+        val depoKonum = SecuritySanitizer.sanitizeText(depoKonumRaw, 60).ifEmpty { UrunModel.DEFAULT_WAREHOUSE }
+        val aciklama = SecuritySanitizer.sanitizeText(aciklamaRaw, SecuritySanitizer.MAX_LONG_TEXT)
 
         val adError = if (ad.isEmpty()) ValidationError.REQUIRED else null
         val kodError = if (kod.isEmpty()) ValidationError.REQUIRED else null
@@ -133,6 +167,16 @@ object ValidationUtils {
         val birimFiyat = parseNonNegativeDouble(birimFiyatRaw)
         val birimFiyatError = if (birimFiyat == null) ValidationError.INVALID_PRICE else null
 
+        val alisFiyati = parseNonNegativeDouble(alisFiyatiRaw)
+        val alisFiyatiError = if (alisFiyati == null) ValidationError.INVALID_PRICE else null
+
+        val kdvOrani = if (kdvOraniRaw.isBlank()) {
+            UrunModel.DEFAULT_VAT_RATE
+        } else {
+            parseNonNegativeInt(kdvOraniRaw)?.takeIf { it in 0..100 }
+        }
+        val kdvOraniError = if (kdvOrani == null) ValidationError.INVALID_VAT else null
+
         return ProductValidationResult(
             ad = ad,
             kod = kod,
@@ -140,12 +184,18 @@ object ValidationUtils {
             adet = adet ?: 0,
             minStok = minStok ?: UrunModel.DEFAULT_MIN_STOCK,
             birimFiyat = birimFiyat ?: 0.0,
+            alisFiyati = alisFiyati ?: 0.0,
+            kdvOrani = kdvOrani ?: UrunModel.DEFAULT_VAT_RATE,
+            tedarikci = tedarikci,
+            depoKonum = depoKonum,
             aciklama = aciklama,
             adError = adError,
             kodError = kodError,
             adetError = adetError,
             minStokError = minStokError,
-            birimFiyatError = birimFiyatError
+            birimFiyatError = birimFiyatError,
+            alisFiyatiError = alisFiyatiError,
+            kdvOraniError = kdvOraniError
         )
     }
 
@@ -156,9 +206,9 @@ object ValidationUtils {
         passwordRaw: String,
         confirmPasswordRaw: String
     ): RegistrationValidationResult {
-        val username = usernameRaw.trim()
-        val email = emailRaw.trim()
-        val business = businessRaw.trim()
+        val username = SecuritySanitizer.sanitizeText(usernameRaw, 60)
+        val email = SecuritySanitizer.sanitizeText(emailRaw, 120)
+        val business = SecuritySanitizer.sanitizeText(businessRaw, 80)
 
         val usernameError = if (username.isEmpty()) ValidationError.REQUIRED else null
         val emailError = when {
@@ -169,7 +219,7 @@ object ValidationUtils {
         val businessError = if (business.isEmpty()) ValidationError.REQUIRED else null
         val passwordError = when {
             passwordRaw.isBlank() -> ValidationError.REQUIRED
-            passwordRaw.length < MIN_PASSWORD_LENGTH -> ValidationError.PASSWORD_TOO_SHORT
+            !PasswordPolicy.isStrong(passwordRaw) -> ValidationError.PASSWORD_TOO_WEAK
             else -> null
         }
         val confirmPasswordError = when {
@@ -198,17 +248,19 @@ object ValidationUtils {
         noteRaw: String
     ): StockAdjustmentValidationResult {
         val amount = parsePositiveInt(amountRaw)
-        if (amount == null) {
-            return StockAdjustmentValidationResult(amountError = ValidationError.INVALID_QUANTITY)
-        }
+            ?: return StockAdjustmentValidationResult(amountError = ValidationError.INVALID_QUANTITY)
+
         if (!isIncoming && amount > currentQty) {
             return StockAdjustmentValidationResult(amountError = ValidationError.INSUFFICIENT_STOCK)
         }
         val delta = if (isIncoming) amount else -amount
+        if (SecuritySanitizer.safeAddQuantity(currentQty, delta) == null) {
+            return StockAdjustmentValidationResult(amountError = ValidationError.QUANTITY_OVERFLOW)
+        }
         return StockAdjustmentValidationResult(
             amount = amount,
             delta = delta,
-            note = noteRaw.trim()
+            note = SecuritySanitizer.sanitizeText(noteRaw, 200)
         )
     }
 
@@ -220,7 +272,7 @@ object ValidationUtils {
         val currentError = if (currentPasswordRaw.isBlank()) ValidationError.REQUIRED else null
         val newError = when {
             newPasswordRaw.isBlank() -> ValidationError.REQUIRED
-            newPasswordRaw.length < MIN_PASSWORD_LENGTH -> ValidationError.PASSWORD_TOO_SHORT
+            !PasswordPolicy.isStrong(newPasswordRaw) -> ValidationError.PASSWORD_TOO_WEAK
             else -> null
         }
         val confirmError = when {
@@ -235,6 +287,40 @@ object ValidationUtils {
             currentPasswordError = currentError,
             newPasswordError = newError,
             confirmPasswordError = confirmError
+        )
+    }
+
+    fun validateSupplier(
+        firmaAdiRaw: String,
+        yetkiliRaw: String,
+        telefonRaw: String,
+        epostaRaw: String,
+        vergiNoRaw: String,
+        notlarRaw: String
+    ): SupplierValidationResult {
+        val firma = SecuritySanitizer.sanitizeText(firmaAdiRaw, 100)
+        val yetkili = SecuritySanitizer.sanitizeText(yetkiliRaw, 80)
+        val telefon = SecuritySanitizer.sanitizeText(telefonRaw, 30)
+        val eposta = SecuritySanitizer.sanitizeText(epostaRaw, 120)
+        val vergiNo = SecuritySanitizer.sanitizeText(vergiNoRaw, 30)
+        val notlar = SecuritySanitizer.sanitizeText(notlarRaw, 250)
+
+        val firmaError = if (firma.isEmpty()) ValidationError.REQUIRED else null
+        val epostaError = if (eposta.isNotEmpty() && !isValidEmail(eposta)) {
+            ValidationError.INVALID_EMAIL
+        } else {
+            null
+        }
+
+        return SupplierValidationResult(
+            firmaAdi = firma,
+            yetkiliKisi = yetkili,
+            telefon = telefon,
+            eposta = eposta,
+            vergiNo = vergiNo,
+            notlar = notlar,
+            firmaAdiError = firmaError,
+            epostaError = epostaError
         )
     }
 }

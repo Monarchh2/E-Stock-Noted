@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="tr">
     <string name="app_name">E-Stock Noted</string>
     <string name="app_tagline">Profesyonel Stok ve Envanter Yönetimi</string>
     <string name="cd_app_logo">E-Stock Noted logosu</string>
@@ -37,7 +37,6 @@
     <!-- Validation Messages -->
     <string name="err_required_field">Bu alan zorunludur.</string>
     <string name="err_invalid_email">Geçerli bir e-posta adresi giriniz.</string>
-    <string name="err_password_short">Şifre en az 4 karakter olmalıdır.</string>
     <string name="err_password_mismatch">Şifreler birbiriyle eşleşmiyor.</string>
     <string name="err_invalid_quantity">Geçerli bir sayısal adet giriniz (0 veya üzeri).</string>
     <string name="err_invalid_min_stock">Geçerli bir kritik stok eşiği giriniz.</string>
@@ -93,7 +92,6 @@
     <string name="hint_product_category">Kategori</string>
     <string name="hint_product_qty">Stok Adedi</string>
     <string name="hint_product_min_stock">Kritik Stok Eşiği</string>
-    <string name="hint_product_price">Birim Fiyat (₺)</string>
     <string name="hint_product_desc">Açıklama / Not</string>
     <string name="btn_save">Kaydet</string>
     <string name="btn_view_list">Stok Listesi</string>
@@ -102,7 +100,6 @@
     <string name="msg_product_add_failed">Ürün kaydedilemedi.</string>
     <string name="dialog_edit_title">Ürünü Güncelle</string>
     <string name="dialog_detail_title">Ürün Detayı</string>
-    <string name="dialog_detail_body_format">Ürün Adı: %1$s\nÜrün Kodu: %2$s\nKategori: %3$s\nStok Adedi: %4$d\nKritik Eşik: %5$d\nBirim Fiyat: %6$s\nToplam Değer: %7$s\nAçıklama: %8$s</string>
     <string name="btn_update">Güncelle</string>
     <string name="btn_delete">Sil</string>
     <string name="btn_cancel">İptal</string>
@@ -167,4 +164,88 @@
     <string name="filter_move_out">Çıkış</string>
     <string name="filter_move_update">Güncelleme</string>
     <string name="filter_move_delete">Silme</string>
+
+    <!-- v3.0 Commercial ERP, Graphical Reports & Security -->
+    <string name="role_depo">Depo Sorumlusu</string>
+    <string name="menu_reports">Grafiksel Raporlar</string>
+    <string name="menu_suppliers">Tedarikçiler</string>
+    <string name="menu_export_pdf">PDF Raporu Paylaş</string>
+    <string name="menu_admin_panel">Yönetim &amp; Güvenlik</string>
+    <string name="err_password_weak">Şifre en az 8 karakter olmalı; büyük harf, küçük harf ve rakam içermelidir.</string>
+    <string name="err_invalid_vat">KDV oranı 0 ile 100 arasında olmalıdır.</string>
+    <string name="err_quantity_overflow">Stok miktarı izin verilen üst sınırı aşıyor.</string>
+    <string name="msg_account_locked" tools:ignore="PluralsCandidate">Çok fazla hatalı deneme. Lütfen %1$d saniye sonra tekrar deneyin.</string>
+    <string name="msg_session_expired">Oturum süreniz doldu. Güvenlik için lütfen tekrar giriş yapın.</string>
+    <string name="msg_must_change_password">Güvenlik politikası gereği varsayılan şifrenizi güçlü bir şifreyle değiştiriniz.</string>
+
+    <!-- Commercial Product Fields -->
+    <string name="hint_cost_price">Alış / Maliyet Fiyatı (₺)</string>
+    <string name="hint_sale_price">Satış Fiyatı (₺)</string>
+    <string name="hint_vat_rate">KDV (%)</string>
+    <string name="hint_supplier">Tedarikçi Firma</string>
+    <string name="hint_warehouse">Depo / Raf Konumu</string>
+    <string name="label_margin_format">Marj: %1$s</string>
+    <string name="label_price_with_margin_format">%1$s • %2$s • %3$s</string>
+    <string name="label_user_role_format">%1$s (%2$s)</string>
+    <string name="badge_audit_ok">OK</string>
+    <string name="badge_audit_warn">UYARI</string>
+    <string name="dialog_detail_commercial_format">Ürün Adı: %1$s\nÜrün Kodu: %2$s\nKategori: %3$s\nDepo/Raf: %4$s\nTedarikçi: %5$s\nStok Adedi: %6$d (Kritik: %7$d)\nAlış Fiyatı: %8$s\nSatış Fiyatı: %9$s (KDV %%%10$d)\nKâr Marjı: %11$s\nToplam Değer: %12$s\nAçıklama: %13$s</string>
+
+    <!-- Graphical Reports Screen -->
+    <string name="title_reports">Grafiksel Raporlar &amp; Analiz</string>
+    <string name="range_7d">Son 7 Gün</string>
+    <string name="range_30d">Son 30 Gün</string>
+    <string name="range_all">Tüm Zamanlar</string>
+    <string name="kpi_total_cost">Toplam Maliyet</string>
+    <string name="kpi_potential_revenue">Potansiyel Ciro</string>
+    <string name="kpi_est_profit">Tahmini Brüt Kâr</string>
+    <string name="kpi_avg_margin">Ort. Kâr Marjı</string>
+    <string name="section_stock_health">Stok Sağlığı Dağılımı</string>
+    <string name="label_health_summary">Yeterli: %1$d  •  Kritik: %2$d  •  Tükendi: %3$d</string>
+    <string name="section_category_chart">Kategori Bazlı Envanter Dağılımı</string>
+    <string name="section_trend_chart">Stok Giriş / Çıkış Trendi</string>
+    <string name="legend_inflow">● Giriş (+)</string>
+    <string name="legend_outflow">● Çıkış (-)</string>
+    <string name="section_top_products">En Değerli 5 Ürün (ABC Analizi)</string>
+    <string name="section_reorder_list">Otomatik Sipariş Öneri Listesi</string>
+    <string name="empty_reorder_msg">Kritik eşiğin altında ürün bulunmuyor. Tüm stoklar sağlıklı.</string>
+    <string name="reorder_row_format">• %1$s (%2$s) — Mevcut: %3$d / Önerilen Sipariş: +%4$d [%5$s]</string>
+    <string name="share_pdf_chooser">PDF Raporunu Paylaş</string>
+    <string name="share_pdf_subject">E-Stock Noted Ticari Envanter Raporu</string>
+    <string name="msg_pdf_failed">PDF raporu oluşturulamadı.</string>
+
+    <!-- Suppliers Screen -->
+    <string name="title_suppliers">Tedarikçi &amp; Cari Yönetimi</string>
+    <string name="fab_add_supplier">Yeni Tedarikçi</string>
+    <string name="dialog_add_supplier_title">Yeni Tedarikçi Ekle</string>
+    <string name="hint_supplier_name">Firma Adı *</string>
+    <string name="hint_supplier_contact">Yetkili Kişi</string>
+    <string name="hint_supplier_phone">Telefon</string>
+    <string name="hint_supplier_email">E-Posta</string>
+    <string name="hint_supplier_tax">Vergi No</string>
+    <string name="hint_supplier_notes">Notlar</string>
+    <string name="empty_suppliers_title">Henüz tedarikçi eklenmemiş</string>
+    <string name="empty_suppliers_desc">Tedarikçi ekleyerek ürünlerinizi cari hesaplarla ilişkilendirebilirsiniz.</string>
+    <string name="msg_supplier_added">Tedarikçi eklendi.</string>
+    <string name="msg_supplier_exists">Bu firma adı zaten kayıtlı.</string>
+    <string name="msg_supplier_deleted">Tedarikçi silindi.</string>
+
+    <!-- Admin Management & Security Audit Screen -->
+    <string name="title_admin_panel">Yönetim &amp; Güvenlik Merkezi</string>
+    <string name="tab_staff">Personel</string>
+    <string name="tab_security_log">Güvenlik Günlüğü</string>
+    <string name="tab_backup">Yedekleme</string>
+    <string name="btn_add_staff">Yeni Personel Ekle</string>
+    <string name="dialog_add_staff_title">Yeni Personel Oluştur</string>
+    <string name="hint_staff_role">Yetki Rolü</string>
+    <string name="msg_staff_added">Personel hesabı oluşturuldu.</string>
+    <string name="msg_staff_status_updated">Hesap durumu güncellendi.</string>
+    <string name="msg_cannot_deactivate_self">Kendi yönetici hesabınızı pasifleştiremezsiniz.</string>
+    <string name="btn_export_backup_json">JSON Yedeği Dışa Aktar</string>
+    <string name="label_backup_summary_format" tools:ignore="PluralsCandidate">Toplam %1$d ürün, %2$d tedarikçi ve %3$d hareket kaydı yedeklenmeye hazır.</string>
+    <string name="share_backup_chooser">JSON Yedeğini Paylaş</string>
+    <string name="msg_backup_failed">Yedek dosyası oluşturulamadı.</string>
+    <string name="empty_audit_log">Henüz güvenlik denetim kaydı bulunmuyor.</string>
+    <string name="label_user_status_active">Aktif</string>
+    <string name="label_user_status_inactive">Pasif</string>
 </resources>

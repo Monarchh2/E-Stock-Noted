@@ -8,7 +8,9 @@ object StokCsvExporter {
     fun toCsv(items: List<UrunModel>): String {
         val sb = StringBuilder()
         sb.append(UTF8_BOM)
-        sb.append("ID,Ürün Kodu,Ürün Adı,Kategori,Adet,Kritik Eşik,Birim Fiyat,Toplam Değer,Durum,Açıklama\n")
+        sb.append(
+            "ID,Ürün Kodu,Ürün Adı,Kategori,Adet,Kritik Eşik,Alış Fiyatı,Satış Fiyatı,KDV %,Kâr Marjı %,Toplam Maliyet,Toplam Değer,Tahmini Kâr,Tedarikçi,Depo/Raf,Durum,Açıklama\n"
+        )
 
         for (item in items) {
             val status = when {
@@ -18,15 +20,22 @@ object StokCsvExporter {
             }
             val row = listOf(
                 item.id.toString(),
-                escape(item.kod),
-                escape(item.ad),
-                escape(item.kategori),
+                escape(SecuritySanitizer.sanitizeCsvCell(item.kod)),
+                escape(SecuritySanitizer.sanitizeCsvCell(item.ad)),
+                escape(SecuritySanitizer.sanitizeCsvCell(item.kategori)),
                 item.adet.toString(),
                 item.minStok.toString(),
+                String.format(Locale.US, "%.2f", item.alisFiyati),
                 String.format(Locale.US, "%.2f", item.birimFiyat),
+                item.kdvOrani.toString(),
+                String.format(Locale.US, "%.1f", item.karMarjiYuzde),
+                String.format(Locale.US, "%.2f", item.toplamMaliyet),
                 String.format(Locale.US, "%.2f", item.toplamDeger),
+                String.format(Locale.US, "%.2f", item.tahminiToplamKar),
+                escape(SecuritySanitizer.sanitizeCsvCell(item.tedarikci)),
+                escape(SecuritySanitizer.sanitizeCsvCell(item.depoKonum)),
                 status,
-                escape(item.aciklama)
+                escape(SecuritySanitizer.sanitizeCsvCell(item.aciklama))
             )
             sb.append(row.joinToString(",")).append('\n')
         }

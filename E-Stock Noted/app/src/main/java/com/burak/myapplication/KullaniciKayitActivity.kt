@@ -11,18 +11,15 @@ class KullaniciKayitActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SecurityWindowHelper.applySecureFlag(this)
+
         binding = ActivityKullaniciKayitBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         dbHelper = DatabaseHelper(this)
 
-        binding.toolbar.setNavigationOnClickListener {
-            finish()
-        }
-
-        binding.btnRegisterSubmit.setOnClickListener {
-            attemptRegister()
-        }
+        binding.toolbar.setNavigationOnClickListener { finish() }
+        binding.btnRegisterSubmit.setOnClickListener { attemptRegister() }
     }
 
     private fun attemptRegister() {
@@ -56,6 +53,7 @@ class KullaniciKayitActivity : AppCompatActivity() {
         )
 
         if (insertedId > 0) {
+            dbHelper.guvenlikKaydiEkle("KAYIT", result.username, "Yeni kullanıcı kaydı oluşturuldu", true)
             Toast.makeText(this, R.string.msg_register_success, Toast.LENGTH_SHORT).show()
             finish()
         } else {
@@ -66,7 +64,7 @@ class KullaniciKayitActivity : AppCompatActivity() {
     private fun errorMessage(error: ValidationError?): String? = when (error) {
         ValidationError.REQUIRED -> getString(R.string.err_required_field)
         ValidationError.INVALID_EMAIL -> getString(R.string.err_invalid_email)
-        ValidationError.PASSWORD_TOO_SHORT -> getString(R.string.err_password_short)
+        ValidationError.PASSWORD_TOO_WEAK -> getString(R.string.err_password_weak)
         ValidationError.PASSWORD_MISMATCH -> getString(R.string.err_password_mismatch)
         else -> null
     }

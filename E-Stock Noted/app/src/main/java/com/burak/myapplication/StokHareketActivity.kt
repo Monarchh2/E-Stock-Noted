@@ -18,6 +18,7 @@ class StokHareketActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SecurityWindowHelper.applySecureFlag(this)
         binding = ActivityStokHareketBinding.inflate(layoutInflater)
         setContentView(binding.root)
 

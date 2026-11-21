@@ -14,35 +14,46 @@ class StokActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SecurityWindowHelper.applySecureFlag(this)
+
         sessionManager = SessionManager(this)
-        if (!sessionManager.isAdmin()) {
+        dataBase = DatabaseHelper(this)
+        try {
+            AccessGuard.requireStockWrite(sessionManager.getRole())
+        } catch (_: SecurityException) {
+            dataBase.guvenlikKaydiEkle("YETKISIZ_ERISIM", sessionManager.getUsername(), "Stok ekleme ekranına yetkisiz erişim", false)
             Toast.makeText(this, R.string.msg_admin_only, Toast.LENGTH_SHORT).show()
             finish()
             return
         }
 
+        if (!sessionManager.isLoggedIn() || sessionManager.isSessionExpired()) {
+            sessionManager.clearSession()
+            finish()
+            return
+        }
+        sessionManager.touchActivity()
+
         binding = ActivityStokBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        dataBase = DatabaseHelper(this)
+        binding.toolbar.setNavigationOnClickListener { finish() }
 
-        binding.toolbar.setNavigationOnClickListener {
-            finish()
-        }
-
-        val categoryAdapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_dropdown_item_1line,
-            UrunModel.DEFAULT_CATEGORIES
+        binding.actvKategori.setAdapter(
+            ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, UrunModel.DEFAULT_CATEGORIES)
         )
-        binding.actvKategori.setAdapter(categoryAdapter)
         binding.actvKategori.setText(UrunModel.DEFAULT_CATEGORY, false)
+
+        val suppliers = dataBase.tedarikcileriGetir().map { it.firmaAdi }
+        binding.actvTedarikci.setAdapter(
+            ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, suppliers)
+        )
+
         binding.etMinStok.setText(UrunModel.DEFAULT_MIN_STOCK.toString())
+        binding.etKdvOrani.setText(UrunModel.DEFAULT_VAT_RATE.toString())
+        binding.etDepoKonum.setText(UrunModel.DEFAULT_WAREHOUSE)
 
-        binding.btnKaydet.setOnClickListener {
-            urunKontrolVeKaydet()
-        }
-
+        binding.btnKaydet.setOnClickListener { urunKontrolVeKaydet() }
         binding.btnListele.setOnClickListener {
             val intent = Intent(this, StokBilgiActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -60,14 +71,20 @@ class StokActivity : AppCompatActivity() {
             adetRaw = binding.etUrunAdet.text?.toString().orEmpty(),
             minStokRaw = binding.etMinStok.text?.toString().orEmpty(),
             birimFiyatRaw = binding.etBirimFiyat.text?.toString().orEmpty(),
-            aciklamaRaw = binding.etAciklama.text?.toString().orEmpty()
+            aciklamaRaw = binding.etAciklama.text?.toString().orEmpty(),
+            alisFiyatiRaw = binding.etAlisFiyati.text?.toString().orEmpty(),
+            kdvOraniRaw = binding.etKdvOrani.text?.toString().orEmpty(),
+            tedarikciRaw = binding.actvTedarikci.text?.toString().orEmpty(),
+            depoKonumRaw = binding.etDepoKonum.text?.toString().orEmpty()
         )
 
         binding.tilUrunAd.error = errorMessage(result.adError)
         binding.tilUrunKod.error = errorMessage(result.kodError)
         binding.tilUrunAdet.error = errorMessage(result.adetError)
         binding.tilMinStok.error = errorMessage(result.minStokError)
+        binding.tilAlisFiyati.error = errorMessage(result.alisFiyatiError)
         binding.tilBirimFiyat.error = errorMessage(result.birimFiyatError)
+        binding.tilKdvOrani.error = errorMessage(result.kdvOraniError)
 
         if (!result.isValid) return
 
@@ -85,7 +102,11 @@ class StokActivity : AppCompatActivity() {
             birimFiyat = result.birimFiyat,
             aciklama = result.aciklama,
             yapanKullanici = sessionManager.getUsername(),
-            hareketNotu = getString(R.string.note_initial_stock)
+            hareketNotu = getString(R.string.note_initial_stock),
+            alisFiyati = result.alisFiyati,
+            kdvOrani = result.kdvOrani,
+            tedarikci = result.tedarikci,
+            depoKonum = result.depoKonum
         )
 
         if (insertedId > 0) {
@@ -102,7 +123,11 @@ class StokActivity : AppCompatActivity() {
         binding.actvKategori.setText(UrunModel.DEFAULT_CATEGORY, false)
         binding.etUrunAdet.setText("")
         binding.etMinStok.setText(UrunModel.DEFAULT_MIN_STOCK.toString())
+        binding.etAlisFiyati.setText("")
         binding.etBirimFiyat.setText("")
+        binding.etKdvOrani.setText(UrunModel.DEFAULT_VAT_RATE.toString())
+        binding.etDepoKonum.setText(UrunModel.DEFAULT_WAREHOUSE)
+        binding.actvTedarikci.setText("", false)
         binding.etAciklama.setText("")
         binding.etUrunAd.requestFocus()
     }
@@ -112,6 +137,7 @@ class StokActivity : AppCompatActivity() {
         ValidationError.INVALID_QUANTITY -> getString(R.string.err_invalid_quantity)
         ValidationError.INVALID_MIN_STOCK -> getString(R.string.err_invalid_min_stock)
         ValidationError.INVALID_PRICE -> getString(R.string.err_invalid_price)
+        ValidationError.INVALID_VAT -> getString(R.string.err_invalid_vat)
         else -> null
     }
 }
