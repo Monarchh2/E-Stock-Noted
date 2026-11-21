@@ -13,7 +13,8 @@ import com.burak.myapplication.databinding.ItemStokBinding
 class StokListAdapter(
     private val isAdmin: Boolean,
     private val onItemClick: (UrunModel) -> Unit,
-    private val onAdjustQuantity: (UrunModel, Int) -> Unit
+    private val onAdjustQuantity: (UrunModel, Int) -> Unit,
+    private val onBulkAdjust: (UrunModel) -> Unit
 ) : ListAdapter<UrunModel, StokListAdapter.ViewHolder>(DIFF_CALLBACK) {
 
     class ViewHolder(val binding: ItemStokBinding) : RecyclerView.ViewHolder(binding.root)
@@ -68,6 +69,7 @@ class StokListAdapter(
             btnDecrease.alpha = if (item.adet > 0) 1f else 0.4f
 
             root.setOnClickListener { onItemClick(item) }
+            btnStockAdjust.setOnClickListener { onBulkAdjust(item) }
             btnDecrease.setOnClickListener { onAdjustQuantity(item, -1) }
             btnIncrease.setOnClickListener { onAdjustQuantity(item, +1) }
         }

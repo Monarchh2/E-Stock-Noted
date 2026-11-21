@@ -41,12 +41,36 @@ data class RegistrationValidationResult(
             confirmPasswordError == null
 }
 
+data class StockAdjustmentValidationResult(
+    val amount: Int = 0,
+    val delta: Int = 0,
+    val note: String = "",
+    val amountError: ValidationError? = null
+) {
+    val isValid: Boolean
+        get() = amountError == null
+}
+
+data class PasswordChangeValidationResult(
+    val currentPassword: String = "",
+    val newPassword: String = "",
+    val currentPasswordError: ValidationError? = null,
+    val newPasswordError: ValidationError? = null,
+    val confirmPasswordError: ValidationError? = null
+) {
+    val isValid: Boolean
+        get() = currentPasswordError == null &&
+            newPasswordError == null &&
+            confirmPasswordError == null
+}
+
 enum class ValidationError {
     REQUIRED,
     INVALID_EMAIL,
     PASSWORD_TOO_SHORT,
     PASSWORD_MISMATCH,
     INVALID_QUANTITY,
+    INSUFFICIENT_STOCK,
     INVALID_MIN_STOCK,
     INVALID_PRICE
 }
@@ -59,6 +83,12 @@ object ValidationUtils {
         val trimmed = raw.trim()
         val parsed = trimmed.toIntOrNull() ?: return null
         return if (parsed >= 0) parsed else null
+    }
+
+    fun parsePositiveInt(raw: String): Int? {
+        val trimmed = raw.trim()
+        val parsed = trimmed.toIntOrNull() ?: return null
+        return if (parsed > 0) parsed else null
     }
 
     fun parseNonNegativeDouble(raw: String): Double? {
@@ -158,6 +188,53 @@ object ValidationUtils {
             businessError = businessError,
             passwordError = passwordError,
             confirmPasswordError = confirmPasswordError
+        )
+    }
+
+    fun validateStockAdjustment(
+        currentQty: Int,
+        amountRaw: String,
+        isIncoming: Boolean,
+        noteRaw: String
+    ): StockAdjustmentValidationResult {
+        val amount = parsePositiveInt(amountRaw)
+        if (amount == null) {
+            return StockAdjustmentValidationResult(amountError = ValidationError.INVALID_QUANTITY)
+        }
+        if (!isIncoming && amount > currentQty) {
+            return StockAdjustmentValidationResult(amountError = ValidationError.INSUFFICIENT_STOCK)
+        }
+        val delta = if (isIncoming) amount else -amount
+        return StockAdjustmentValidationResult(
+            amount = amount,
+            delta = delta,
+            note = noteRaw.trim()
+        )
+    }
+
+    fun validatePasswordChange(
+        currentPasswordRaw: String,
+        newPasswordRaw: String,
+        confirmPasswordRaw: String
+    ): PasswordChangeValidationResult {
+        val currentError = if (currentPasswordRaw.isBlank()) ValidationError.REQUIRED else null
+        val newError = when {
+            newPasswordRaw.isBlank() -> ValidationError.REQUIRED
+            newPasswordRaw.length < MIN_PASSWORD_LENGTH -> ValidationError.PASSWORD_TOO_SHORT
+            else -> null
+        }
+        val confirmError = when {
+            confirmPasswordRaw.isBlank() -> ValidationError.REQUIRED
+            newPasswordRaw != confirmPasswordRaw -> ValidationError.PASSWORD_MISMATCH
+            else -> null
+        }
+
+        return PasswordChangeValidationResult(
+            currentPassword = currentPasswordRaw,
+            newPassword = newPasswordRaw,
+            currentPasswordError = currentError,
+            newPasswordError = newError,
+            confirmPasswordError = confirmError
         )
     }
 }

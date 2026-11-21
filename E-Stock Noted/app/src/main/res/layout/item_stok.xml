@@ -146,6 +146,22 @@
                 android:orientation="horizontal">
 
                 <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnStockAdjust"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:layout_marginEnd="6dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="10dp"
+                    android:text="@string/btn_stock_adjust"
+                    android:textColor="@color/brand_navy"
+                    android:textSize="12sp"
+                    app:backgroundTint="@color/brand_teal_soft"
+                    app:cornerRadius="10dp" />
+
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnDecrease"
                     style="@style/Widget.Material3.Button.TonalButton.Icon"
                     android:layout_width="40dp"

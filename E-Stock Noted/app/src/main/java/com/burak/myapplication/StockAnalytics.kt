@@ -32,13 +32,23 @@ object StockAnalytics {
         )
     }
 
+    fun extractCategories(items: List<UrunModel>): List<String> {
+        return items
+            .map { it.kategori.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+            .sortedBy { it.lowercase(TR_LOCALE) }
+    }
+
     fun filterAndSort(
         items: List<UrunModel>,
         query: String,
         filtre: StokFiltre,
-        siralama: StokSiralama
+        siralama: StokSiralama,
+        kategori: String? = null
     ): List<UrunModel> {
         val normalizedQuery = query.trim().lowercase(TR_LOCALE)
+        val normalizedCategory = kategori?.trim()?.takeIf { it.isNotEmpty() }
 
         val filtered = items.filter { item ->
             val matchesFilter = when (filtre) {
@@ -47,6 +57,11 @@ object StockAnalytics {
                 StokFiltre.TUKENEN -> item.isOutOfStock
             }
             if (!matchesFilter) return@filter false
+
+            if (normalizedCategory != null && !item.kategori.equals(normalizedCategory, ignoreCase = true)) {
+                return@filter false
+            }
+
             if (normalizedQuery.isEmpty()) return@filter true
 
             item.ad.lowercase(TR_LOCALE).contains(normalizedQuery) ||
@@ -64,6 +79,23 @@ object StockAnalytics {
                 compareByDescending<UrunModel> { it.adet }.thenBy { it.ad.lowercase(TR_LOCALE) }
             )
             StokSiralama.SON_GUNCELLEME -> filtered.sortedByDescending { it.guncellemeTarihi }
+        }
+    }
+
+    fun filterMovements(
+        movements: List<StokHareketModel>,
+        query: String,
+        tip: HareketTipi? = null
+    ): List<StokHareketModel> {
+        val normalizedQuery = query.trim().lowercase(TR_LOCALE)
+        return movements.filter { move ->
+            if (tip != null && move.hareketTipi != tip) return@filter false
+            if (normalizedQuery.isEmpty()) return@filter true
+
+            move.urunAdi.lowercase(TR_LOCALE).contains(normalizedQuery) ||
+                move.urunKodu.lowercase(TR_LOCALE).contains(normalizedQuery) ||
+                move.yapanKullanici.lowercase(TR_LOCALE).contains(normalizedQuery) ||
+                move.not.lowercase(TR_LOCALE).contains(normalizedQuery)
         }
     }
 

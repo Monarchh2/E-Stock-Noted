@@ -12,6 +12,8 @@ import androidx.core.content.FileProvider
 import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.burak.myapplication.databinding.ActivityStokBilgiBinding
+import com.burak.myapplication.databinding.DialogChangePasswordBinding
+import com.burak.myapplication.databinding.DialogStockAdjustBinding
 import com.burak.myapplication.databinding.DialogUpdateDeleteBinding
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.io.File
@@ -25,6 +27,7 @@ class StokBilgiActivity : AppCompatActivity() {
     private var allItems: List<UrunModel> = emptyList()
     private var currentQuery: String = ""
     private var currentFilter: StokFiltre = StokFiltre.TUMU
+    private var currentCategory: String? = null
     private var currentSort: StokSiralama = StokSiralama.SON_GUNCELLEME
     private var isAdmin: Boolean = false
 
@@ -73,6 +76,10 @@ class StokBilgiActivity : AppCompatActivity() {
                     exportCsvReport()
                     true
                 }
+                R.id.action_change_password -> {
+                    showChangePasswordDialog()
+                    true
+                }
                 R.id.action_logout -> {
                     confirmLogout()
                     true
@@ -96,6 +103,11 @@ class StokBilgiActivity : AppCompatActivity() {
                 if (isAdmin) {
                     adjustStockQuantity(urun, delta)
                 }
+            },
+            onBulkAdjust = { urun ->
+                if (isAdmin) {
+                    showBulkStockAdjustDialog(urun)
+                }
             }
         )
         binding.stklist.layoutManager = LinearLayoutManager(this)
@@ -117,6 +129,10 @@ class StokBilgiActivity : AppCompatActivity() {
             applyFilterAndSort()
         }
 
+        binding.btnCategoryFilter.setOnClickListener {
+            showCategoryFilterDialog()
+        }
+
         binding.btnSort.setOnClickListener {
             showSortDialog()
         }
@@ -131,6 +147,11 @@ class StokBilgiActivity : AppCompatActivity() {
 
     private fun refreshData() {
         allItems = database.urunGetir()
+        val categories = StockAnalytics.extractCategories(allItems)
+        if (currentCategory != null && categories.none { it.equals(currentCategory, ignoreCase = true) }) {
+            currentCategory = null
+            binding.btnCategoryFilter.setText(R.string.btn_category_filter)
+        }
         updateKpiSummary(allItems)
         applyFilterAndSort()
     }
@@ -155,7 +176,8 @@ class StokBilgiActivity : AppCompatActivity() {
             items = allItems,
             query = currentQuery,
             filtre = currentFilter,
-            siralama = currentSort
+            siralama = currentSort,
+            kategori = currentCategory
         )
         adapter.submitList(visibleItems)
 
@@ -196,6 +218,103 @@ class StokBilgiActivity : AppCompatActivity() {
         }
     }
 
+    private fun showBulkStockAdjustDialog(urun: UrunModel) {
+        val dialogBinding = DialogStockAdjustBinding.inflate(layoutInflater)
+        dialogBinding.tvAdjustProductTitle.text =
+            getString(R.string.subtitle_session_format, urun.ad, urun.kod)
+
+        fun updatePreview() {
+            val isIncoming = dialogBinding.chipAdjustIn.isChecked
+            val amount = ValidationUtils.parsePositiveInt(
+                dialogBinding.etAdjustAmount.text?.toString().orEmpty()
+            ) ?: 0
+            val newQty = if (isIncoming) urun.adet + amount else (urun.adet - amount).coerceAtLeast(0)
+            dialogBinding.tvAdjustPreview.text =
+                getString(R.string.label_adjust_preview_format, urun.adet, newQty)
+        }
+
+        updatePreview()
+        dialogBinding.etAdjustAmount.doAfterTextChanged { updatePreview() }
+        dialogBinding.chipGroupAdjustType.setOnCheckedStateChangeListener { _, _ -> updatePreview() }
+
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.dialog_adjust_title)
+            .setView(dialogBinding.root)
+            .setPositiveButton(R.string.btn_apply, null)
+            .setNegativeButton(R.string.btn_cancel, null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val isIncoming = dialogBinding.chipAdjustIn.isChecked
+                val result = ValidationUtils.validateStockAdjustment(
+                    currentQty = urun.adet,
+                    amountRaw = dialogBinding.etAdjustAmount.text?.toString().orEmpty(),
+                    isIncoming = isIncoming,
+                    noteRaw = dialogBinding.etAdjustNote.text?.toString().orEmpty()
+                )
+
+                dialogBinding.tilAdjustAmount.error = errorMessage(result.amountError)
+                if (!result.isValid) return@setOnClickListener
+
+                val defaultNote = getString(
+                    if (isIncoming) R.string.note_quick_increase else R.string.note_quick_decrease
+                )
+                val finalNote = result.note.ifEmpty { defaultNote }
+
+                val success = database.stokMiktarGuncelle(
+                    urun = urun,
+                    delta = result.delta,
+                    not = finalNote,
+                    yapanKullanici = sessionManager.getUsername()
+                )
+                if (success) {
+                    val deltaLabel = if (result.delta >= 0) {
+                        getString(R.string.movement_delta_positive, result.delta)
+                    } else {
+                        getString(R.string.movement_delta_negative, result.delta)
+                    }
+                    Toast.makeText(
+                        this,
+                        getString(R.string.msg_bulk_stock_updated, urun.ad, deltaLabel),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    dialog.dismiss()
+                    refreshData()
+                }
+            }
+        }
+
+        dialog.show()
+    }
+
+    private fun showCategoryFilterDialog() {
+        val categories = StockAnalytics.extractCategories(allItems)
+        val options = arrayOf(getString(R.string.filter_all_categories)) + categories.toTypedArray()
+        val checkedIndex = if (currentCategory == null) {
+            0
+        } else {
+            val idx = categories.indexOfFirst { it.equals(currentCategory, ignoreCase = true) }
+            if (idx >= 0) idx + 1 else 0
+        }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.dialog_category_title)
+            .setSingleChoiceItems(options, checkedIndex) { dialog, which ->
+                if (which == 0) {
+                    currentCategory = null
+                    binding.btnCategoryFilter.setText(R.string.btn_category_filter)
+                } else {
+                    currentCategory = categories[which - 1]
+                    binding.btnCategoryFilter.text = currentCategory
+                }
+                applyFilterAndSort()
+                dialog.dismiss()
+            }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
+    }
+
     private fun showSortDialog() {
         val options = arrayOf(
             getString(R.string.sort_recent),
@@ -220,6 +339,48 @@ class StokBilgiActivity : AppCompatActivity() {
             }
             .setNegativeButton(R.string.btn_cancel, null)
             .show()
+    }
+
+    private fun showChangePasswordDialog() {
+        val dialogBinding = DialogChangePasswordBinding.inflate(layoutInflater)
+
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.dialog_change_password_title)
+            .setView(dialogBinding.root)
+            .setPositiveButton(R.string.btn_update, null)
+            .setNegativeButton(R.string.btn_cancel, null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val result = ValidationUtils.validatePasswordChange(
+                    currentPasswordRaw = dialogBinding.etCurrentPassword.text?.toString().orEmpty(),
+                    newPasswordRaw = dialogBinding.etNewPassword.text?.toString().orEmpty(),
+                    confirmPasswordRaw = dialogBinding.etNewPasswordConfirm.text?.toString().orEmpty()
+                )
+
+                dialogBinding.tilCurrentPassword.error = errorMessage(result.currentPasswordError)
+                dialogBinding.tilNewPassword.error = errorMessage(result.newPasswordError)
+                dialogBinding.tilNewPasswordConfirm.error = errorMessage(result.confirmPasswordError)
+
+                if (!result.isValid) return@setOnClickListener
+
+                val updated = database.changePassword(
+                    username = sessionManager.getUsername(),
+                    currentPassword = result.currentPassword,
+                    newPassword = result.newPassword
+                )
+                if (updated) {
+                    Toast.makeText(this, R.string.msg_password_changed, Toast.LENGTH_SHORT).show()
+                    dialog.dismiss()
+                } else {
+                    dialogBinding.tilCurrentPassword.error =
+                        getString(R.string.msg_current_password_wrong)
+                }
+            }
+        }
+
+        dialog.show()
     }
 
     private fun showReadOnlyDetailDialog(urun: UrunModel) {
@@ -384,7 +545,10 @@ class StokBilgiActivity : AppCompatActivity() {
 
     private fun errorMessage(error: ValidationError?): String? = when (error) {
         ValidationError.REQUIRED -> getString(R.string.err_required_field)
+        ValidationError.PASSWORD_TOO_SHORT -> getString(R.string.err_password_short)
+        ValidationError.PASSWORD_MISMATCH -> getString(R.string.err_password_mismatch)
         ValidationError.INVALID_QUANTITY -> getString(R.string.err_invalid_quantity)
+        ValidationError.INSUFFICIENT_STOCK -> getString(R.string.err_insufficient_stock)
         ValidationError.INVALID_MIN_STOCK -> getString(R.string.err_invalid_min_stock)
         ValidationError.INVALID_PRICE -> getString(R.string.err_invalid_price)
         else -> null

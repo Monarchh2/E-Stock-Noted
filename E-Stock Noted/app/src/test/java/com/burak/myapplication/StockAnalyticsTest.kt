@@ -84,5 +84,26 @@ class StockAnalyticsTest {
             sampleItems, "", StokFiltre.TUMU, StokSiralama.ADET_AZALAN
         )
         assertEquals(listOf(1L, 2L, 3L), byQtyDesc.map { it.id })
+
+        val categories = StockAnalytics.extractCategories(sampleItems)
+        assertEquals(listOf("Elektronik", "Ofis"), categories)
+
+        val onlyOffice = StockAnalytics.filterAndSort(
+            sampleItems, "", StokFiltre.TUMU, StokSiralama.AD_ARTAN, kategori = "Ofis"
+        )
+        assertEquals(listOf("OFS-10"), onlyOffice.map { it.kod })
+    }
+
+    @Test
+    fun filterMovements_filtersByTypeAndQuery() {
+        val movements = listOf(
+            StokHareketModel(1, 1, "Kablosuz Fare", "STK-001", HareketTipi.GIRIS, 10, 20, "Fatura #1", "admin", 1000L),
+            StokHareketModel(2, 2, "USB-C Kablo", "0042", HareketTipi.CIKIS, -2, 3, "Müşteri çıkışı", "admin", 2000L)
+        )
+        val outOnly = StockAnalytics.filterMovements(movements, "", HareketTipi.CIKIS)
+        assertEquals(listOf(2L), outOnly.map { it.id })
+
+        val byNote = StockAnalytics.filterMovements(movements, "fatura", null)
+        assertEquals(listOf(1L), byNote.map { it.id })
     }
 }
