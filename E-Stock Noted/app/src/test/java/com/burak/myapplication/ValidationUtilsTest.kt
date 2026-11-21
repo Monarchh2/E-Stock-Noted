@@ -91,4 +91,36 @@ class ValidationUtilsTest {
         assertEquals(ValidationError.PASSWORD_TOO_SHORT, invalid.passwordError)
         assertEquals(ValidationError.PASSWORD_MISMATCH, invalid.confirmPasswordError)
     }
+
+    @Test
+    fun validateStockAdjustment_handlesIncomingOutgoingAndInsufficientStock() {
+        val incoming = ValidationUtils.validateStockAdjustment(10, "25", true, "  Fatura #12 ")
+        assertTrue(incoming.isValid)
+        assertEquals(25, incoming.delta)
+        assertEquals("Fatura #12", incoming.note)
+
+        val outgoingOk = ValidationUtils.validateStockAdjustment(10, "4", false, "Sevk")
+        assertTrue(outgoingOk.isValid)
+        assertEquals(-4, outgoingOk.delta)
+
+        val outgoingTooMuch = ValidationUtils.validateStockAdjustment(10, "15", false, "")
+        assertFalse(outgoingTooMuch.isValid)
+        assertEquals(ValidationError.INSUFFICIENT_STOCK, outgoingTooMuch.amountError)
+
+        val zeroOrBad = ValidationUtils.validateStockAdjustment(10, "0", true, "")
+        assertFalse(zeroOrBad.isValid)
+        assertEquals(ValidationError.INVALID_QUANTITY, zeroOrBad.amountError)
+    }
+
+    @Test
+    fun validatePasswordChange_enforcesRules() {
+        val ok = ValidationUtils.validatePasswordChange("12345", "yeni123", "yeni123")
+        assertTrue(ok.isValid)
+
+        val bad = ValidationUtils.validatePasswordChange("", "12", "1234")
+        assertFalse(bad.isValid)
+        assertEquals(ValidationError.REQUIRED, bad.currentPasswordError)
+        assertEquals(ValidationError.PASSWORD_TOO_SHORT, bad.newPasswordError)
+        assertEquals(ValidationError.PASSWORD_MISMATCH, bad.confirmPasswordError)
+    }
 }

@@ -12,8 +12,12 @@
         android:title="@string/menu_export_csv"
         app:showAsAction="ifRoom" />
     <item
+        android:id="@+id/action_change_password"
+        android:title="@string/menu_change_password"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_logout"
         android:icon="@drawable/ic_logout"
         android:title="@string/menu_logout"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="never" />
 </menu>

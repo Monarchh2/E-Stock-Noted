@@ -574,4 +574,35 @@ class DatabaseHelper(context: Context) :
             )
         }
     }
+
+    fun changePassword(username: String, currentPassword: String, newPassword: String): Boolean {
+        val trimmedUser = username.trim()
+        if (trimmedUser.isEmpty() || currentPassword.isEmpty() || newPassword.isEmpty()) return false
+
+        val db = writableDatabase
+        db.query(
+            USER_TABLE_NAME,
+            arrayOf(USER_PASSWORD),
+            "$USER_USERNAME = ?",
+            arrayOf(trimmedUser),
+            null,
+            null,
+            null,
+            "1"
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) return false
+            val storedPassword = cursor.getString(cursor.getColumnIndexOrThrow(USER_PASSWORD)) ?: ""
+            if (!PasswordHasher.verify(currentPassword, storedPassword)) return false
+        }
+
+        val values = ContentValues().apply {
+            put(USER_PASSWORD, PasswordHasher.hash(newPassword))
+        }
+        return db.update(
+            USER_TABLE_NAME,
+            values,
+            "$USER_USERNAME = ?",
+            arrayOf(trimmedUser)
+        ) > 0
+    }
 }

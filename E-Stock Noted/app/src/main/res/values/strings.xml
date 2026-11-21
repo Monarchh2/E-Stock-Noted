@@ -139,4 +139,32 @@
     <string name="movement_meta_format">%1$s • Yeni Stok: %2$d • %3$s</string>
     <string name="movement_delta_positive">+%1$d</string>
     <string name="movement_delta_negative">%1$d</string>
+
+    <!-- Category Filter, Bulk Stock Adjust, Password Change & Movement Filter -->
+    <string name="btn_category_filter">Kategori</string>
+    <string name="dialog_category_title">Kategori Filtrele</string>
+    <string name="filter_all_categories">Tüm Kategoriler</string>
+    <string name="btn_stock_adjust">İşlem</string>
+    <string name="dialog_adjust_title">Stok Giriş / Çıkış</string>
+    <string name="adjust_type_in">Stok Girişi (+)</string>
+    <string name="adjust_type_out">Stok Çıkışı (-)</string>
+    <string name="hint_adjust_amount">Miktar</string>
+    <string name="hint_adjust_note">İşlem Notu (örn. Fatura #104)</string>
+    <string name="label_adjust_preview_format">Mevcut: %1$d → Yeni: %2$d</string>
+    <string name="err_insufficient_stock">Çıkış miktarı mevcut stoktan fazla olamaz.</string>
+    <string name="btn_apply">Uygula</string>
+    <string name="msg_bulk_stock_updated">%1$s stoğu güncellendi (%2$s).</string>
+    <string name="menu_change_password">Şifre Değiştir</string>
+    <string name="dialog_change_password_title">Şifre Değiştir</string>
+    <string name="hint_current_password">Mevcut Şifre</string>
+    <string name="hint_new_password">Yeni Şifre</string>
+    <string name="hint_new_password_confirm">Yeni Şifre (Tekrar)</string>
+    <string name="msg_password_changed">Şifreniz başarıyla güncellendi.</string>
+    <string name="msg_current_password_wrong">Mevcut şifreniz hatalı.</string>
+    <string name="hint_search_movements">Ürün, kod, kullanıcı veya not ara…</string>
+    <string name="filter_move_all">Tümü</string>
+    <string name="filter_move_in">Giriş</string>
+    <string name="filter_move_out">Çıkış</string>
+    <string name="filter_move_update">Güncelleme</string>
+    <string name="filter_move_delete">Silme</string>
 </resources>
