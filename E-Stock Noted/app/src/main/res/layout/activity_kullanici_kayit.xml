@@ -1,151 +1,133 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:layout_height="match_parent">
 
-    <com.google.android.material.appbar.MaterialToolbar
-        android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@color/brand_navy"
-        app:navigationContentDescription="@string/cd_back"
-        app:navigationIcon="@drawable/ic_back"
-        app:title="@string/title_user_register"
-        app:titleTextColor="@color/text_on_navy" />
-
-    <ScrollView
-        android:layout_width="match_parent"
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/constraintLayout"
+        android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:fillViewport="true">
+        android:background="#053262"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.0">
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="20dp">
+        <TextView
+            android:id="@+id/ttik"
+            android:layout_width="409dp"
+            android:layout_height="96dp"
+            android:layout_marginStart="1dp"
+            android:layout_marginEnd="1dp"
+            android:background="#2AB89C"
+            android:text="Kullanici Kayıt"
+            android:textAlignment="center"
+            android:textColor="#FFFFFF"
+            android:textSize="48sp"
+            app:layout_constraintBottom_toTopOf="@+id/imageView3"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.0"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.0" />
 
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:cardBackgroundColor="@color/surface_card"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="2dp"
-                app:strokeColor="@color/surface_divider"
-                app:strokeWidth="1dp">
+        <ImageView
+            android:id="@+id/imageView3"
+            android:layout_width="409dp"
+            android:layout_height="220dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.0"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.187"
+            app:srcCompat="@drawable/e_stock" />
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="20dp">
+        <EditText
+            android:id="@+id/editTextEmail"
+            android:layout_width="235dp"
+            android:layout_height="50dp"
+            android:layout_marginTop="10dp"
+            android:backgroundTint="#FFFFFF"
+            android:ems="10"
+            android:hint="E-Mail"
+            android:inputType="textEmailAddress"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#FFFFFF"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.552" />
 
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="18dp"
-                        android:text="@string/subtitle_user_register"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="14sp" />
+        <EditText
+            android:id="@+id/editTextUsername"
+            android:layout_width="235dp"
+            android:layout_height="50dp"
+            android:layout_marginTop="10dp"
+            android:backgroundTint="#FFFFFF"
+            android:ems="10"
+            android:hint="Kullanıcı Adını Giriniz"
+            android:inputType="text"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#FFFFFF"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.478" />
 
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/tilUsername"
-                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="12dp"
-                        android:hint="@string/hint_username">
+        <EditText
+            android:id="@+id/editTextPassword"
+            android:layout_width="235dp"
+            android:layout_height="50dp"
+            android:layout_marginTop="10dp"
+            android:backgroundTint="#FFFFFF"
+            android:ems="10"
+            android:hint="Şifrenizi Giriniz"
+            android:inputType="numberPassword"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#FFFFFF"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.637" />
 
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/etUsername"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:autofillHints="username"
-                            android:inputType="textNoSuggestions"
-                            android:maxLines="1" />
-                    </com.google.android.material.textfield.TextInputLayout>
+        <Button
+            android:id="@+id/buttonKayitEt"
+            android:layout_width="159dp"
+            android:layout_height="51dp"
+            android:backgroundTint="#2AB89C"
+            android:text="Kayıt Et"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.498"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.827" />
 
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/tilEmail"
-                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="12dp"
-                        android:hint="@string/hint_email">
+        <EditText
+            android:id="@+id/editTextBusiness"
+            android:layout_width="235dp"
+            android:layout_height="50dp"
+            android:layout_marginTop="10dp"
+            android:backgroundTint="#FFFFFF"
+            android:ems="10"
+            android:hint="İş Alanı"
+            android:inputType="text"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#FFFFFF"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.712" />
 
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/etEmail"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:autofillHints="emailAddress"
-                            android:inputType="textEmailAddress"
-                            android:maxLines="1" />
-                    </com.google.android.material.textfield.TextInputLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/tilBusiness"
-                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="12dp"
-                        android:hint="@string/hint_business">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/etBusiness"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:importantForAutofill="no"
-                            android:inputType="textCapWords"
-                            android:maxLines="1" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/tilPassword"
-                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="12dp"
-                        android:hint="@string/hint_password"
-                        app:endIconMode="password_toggle">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/etPassword"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:autofillHints="password"
-                            android:inputType="textPassword"
-                            android:maxLines="1" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/tilPasswordConfirm"
-                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="20dp"
-                        android:hint="@string/hint_password_confirm"
-                        app:endIconMode="password_toggle">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/etPasswordConfirm"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:importantForAutofill="no"
-                            android:inputType="textPassword"
-                            android:maxLines="1" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnRegisterSubmit"
-                        android:layout_width="match_parent"
-                        android:layout_height="52dp"
-                        android:text="@string/btn_register_submit"
-                        app:backgroundTint="@color/brand_teal"
-                        app:cornerRadius="12dp" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-        </LinearLayout>
-    </ScrollView>
-</LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,54 +1,55 @@
+
 package com.burak.myapplication
 
+import android.annotation.SuppressLint
 import android.content.Intent
-import android.os.Bundle
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.burak.myapplication.databinding.ActivityYetkiliGirisBinding
+import android.os.Bundle
+import android.widget.Button
+import android.widget.EditText
+import android.widget.Toast
 
 class YetkiliGirisActivity : AppCompatActivity() {
-    private lateinit var binding: ActivityYetkiliGirisBinding
-    private lateinit var dbHelper: DatabaseHelper
-    private lateinit var sessionManager: SessionManager
+    lateinit var kullaniciAdi: EditText // Kullanıcı adı giriş alanı
+    lateinit var sifre: EditText // Şifre giriş alanı
+    lateinit var girisButton: Button // Giriş butonu
 
+    // Bu örnek için sabit kullanıcı adı ve şifre
+    val dogruKullaniciAdi = "admin"
+    val dogruSifre = "12345"
+
+    // Aktivitenin oluşturulma aşaması
+    @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityYetkiliGirisBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        setContentView(R.layout.activity_yetkili_giris) // XML layout dosyasının belirlenmesi
 
-        dbHelper = DatabaseHelper(this)
-        sessionManager = SessionManager(this)
+        // XML layout dosyasındaki elemanların tanımlanması
+        kullaniciAdi = findViewById(R.id.YoneticiEmailAddress) // Kullanıcı adı giriş alanı
+        sifre = findViewById(R.id.YoneticiSifre) // Şifre giriş alanı
+        girisButton = findViewById(R.id.YoneticiGirisButon) // Giriş butonu
 
-        binding.toolbar.setNavigationOnClickListener {
-            finish()
-        }
-
-        binding.btnAdminLogin.setOnClickListener {
-            attemptAdminLogin()
+        // Giriş butonuna tıklanıldığında gerçekleşecek işlemler
+        girisButton.setOnClickListener {
+            girisKontrol()
         }
     }
 
-    private fun attemptAdminLogin() {
-        val username = binding.etAdminUsername.text?.toString().orEmpty().trim()
-        val password = binding.etAdminPassword.text?.toString().orEmpty()
+    // Kullanıcının giriş bilgilerini kontrol etme işlemi
+    private fun girisKontrol() {
+        val girilenKullaniciAdi = kullaniciAdi.text.toString() // Kullanıcı adı
+        val girilenSifre = sifre.text.toString() // Şifre
 
-        binding.tilAdminUsername.error =
-            if (username.isEmpty()) getString(R.string.err_required_field) else null
-        binding.tilAdminPassword.error =
-            if (password.isBlank()) getString(R.string.err_required_field) else null
-
-        if (username.isEmpty() || password.isBlank()) return
-
-        val adminUser = dbHelper.authenticateUser(username, password, requiredRole = UserRole.ADMIN)
-        if (adminUser != null) {
-            sessionManager.saveSession(adminUser)
-            Toast.makeText(this, R.string.msg_login_success, Toast.LENGTH_SHORT).show()
-            val intent = Intent(this, StokBilgiActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            }
+        // Kullanıcı adı ve şifre kontrolü
+        if (girilenKullaniciAdi == dogruKullaniciAdi && girilenSifre == dogruSifre) {
+            // Giriş başarılıysa mesaj göster, yeni aktiviteye geçiş yap ve bu aktiviteyi kapat
+            Toast.makeText(this, "Giriş Başarılı", Toast.LENGTH_SHORT).show()
+            val intent = Intent(this, StokActivity::class.java)
             startActivity(intent)
+            finish()
         } else {
-            Toast.makeText(this, R.string.msg_admin_login_failed, Toast.LENGTH_SHORT).show()
+            // Kullanıcı adı veya şifre yanlışsa hata mesajı göster
+            Toast.makeText(this, "Yanlış kullanıcı adı veya şifre!", Toast.LENGTH_SHORT).show()
         }
     }
 }

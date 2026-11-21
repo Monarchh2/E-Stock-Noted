@@ -1,18 +1,9 @@
-<resources>
-    <style name="Base.Theme.FinalProkesi" parent="Theme.Material3.Light.NoActionBar">
-        <item name="colorPrimary">@color/brand_teal</item>
-        <item name="colorOnPrimary">@color/text_on_navy</item>
-        <item name="colorPrimaryContainer">@color/brand_teal_soft</item>
-        <item name="colorOnPrimaryContainer">@color/brand_navy</item>
-        <item name="colorSecondary">@color/brand_navy</item>
-        <item name="colorOnSecondary">@color/text_on_navy</item>
-        <item name="android:statusBarColor">@color/brand_navy_dark</item>
-        <item name="android:windowBackground">@color/surface_bg</item>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Base.Theme.FinalProkesi" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Customize your light theme here. -->
+        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
     </style>
 
     <style name="Theme.FinalProkesi" parent="Base.Theme.FinalProkesi" />
-
-    <style name="Theme.FinalProkesi.Navy" parent="Theme.FinalProkesi">
-        <item name="android:windowBackground">@color/brand_navy</item>
-    </style>
 </resources>

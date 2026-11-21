@@ -1,73 +1,53 @@
 package com.burak.myapplication
 
 import android.os.Bundle
+import android.widget.Button
+import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.burak.myapplication.databinding.ActivityKullaniciKayitBinding
 
 class KullaniciKayitActivity : AppCompatActivity() {
-    private lateinit var binding: ActivityKullaniciKayitBinding
-    private lateinit var dbHelper: DatabaseHelper
+
+    private lateinit var etUsername: EditText
+    private lateinit var etPassword: EditText
+    private lateinit var etEmail: EditText
+    private lateinit var etBusiness: EditText
+    private lateinit var btnKayitEt: Button
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityKullaniciKayitBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        setContentView(R.layout.activity_kullanici_kayit)
 
-        dbHelper = DatabaseHelper(this)
+        etUsername = findViewById(R.id.editTextUsername)
+        etPassword = findViewById(R.id.editTextPassword)
+        etEmail = findViewById(R.id.editTextEmail)
+        etBusiness = findViewById(R.id.editTextBusiness)
+        btnKayitEt = findViewById(R.id.buttonKayitEt)
 
-        binding.toolbar.setNavigationOnClickListener {
-            finish()
-        }
+        btnKayitEt.setOnClickListener {
+            val username = etUsername.text.toString()
+            val password = etPassword.text.toString()
+            val email = etEmail.text.toString()
+            val business = etBusiness.text.toString()
 
-        binding.btnRegisterSubmit.setOnClickListener {
-            attemptRegister()
-        }
-    }
-
-    private fun attemptRegister() {
-        val result = ValidationUtils.validateRegistration(
-            usernameRaw = binding.etUsername.text?.toString().orEmpty(),
-            emailRaw = binding.etEmail.text?.toString().orEmpty(),
-            businessRaw = binding.etBusiness.text?.toString().orEmpty(),
-            passwordRaw = binding.etPassword.text?.toString().orEmpty(),
-            confirmPasswordRaw = binding.etPasswordConfirm.text?.toString().orEmpty()
-        )
-
-        binding.tilUsername.error = errorMessage(result.usernameError)
-        binding.tilEmail.error = errorMessage(result.emailError)
-        binding.tilBusiness.error = errorMessage(result.businessError)
-        binding.tilPassword.error = errorMessage(result.passwordError)
-        binding.tilPasswordConfirm.error = errorMessage(result.confirmPasswordError)
-
-        if (!result.isValid) return
-
-        if (dbHelper.userExists(result.username)) {
-            binding.tilUsername.error = getString(R.string.msg_register_duplicate)
-            return
-        }
-
-        val insertedId = dbHelper.addUser(
-            username = result.username,
-            password = result.password,
-            email = result.email,
-            business = result.business,
-            role = UserRole.USER
-        )
-
-        if (insertedId > 0) {
-            Toast.makeText(this, R.string.msg_register_success, Toast.LENGTH_SHORT).show()
-            finish()
-        } else {
-            Toast.makeText(this, R.string.msg_register_failed, Toast.LENGTH_SHORT).show()
+            if (username.isNotEmpty() && password.isNotEmpty() && email.isNotEmpty() && business.isNotEmpty()) {
+                val dbHelper = DatabaseHelper(this)
+                val userId = dbHelper.addUser(username, password, email, business)
+                if (userId > 0) {
+                    // Kullanıcı başarıyla kaydedildi.
+                    showToast("Kullanıcı başarıyla kaydedildi.")
+                } else {
+                    // Kullanıcı kaydedilemedi. Hata mesajı gösterebilirsiniz.
+                    showToast("Kullanıcı kaydedilemedi. Lütfen tekrar deneyin.")
+                }
+            } else {
+                // Kullanıcı adı, şifre, email ve business boş olmamalıdır. Kullanıcıya bir uyarı gösterebilirsiniz.
+                showToast("Tüm alanları doldurunuz.")
+            }
         }
     }
 
-    private fun errorMessage(error: ValidationError?): String? = when (error) {
-        ValidationError.REQUIRED -> getString(R.string.err_required_field)
-        ValidationError.INVALID_EMAIL -> getString(R.string.err_invalid_email)
-        ValidationError.PASSWORD_TOO_SHORT -> getString(R.string.err_password_short)
-        ValidationError.PASSWORD_MISMATCH -> getString(R.string.err_password_mismatch)
-        else -> null
+    private fun showToast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 }
