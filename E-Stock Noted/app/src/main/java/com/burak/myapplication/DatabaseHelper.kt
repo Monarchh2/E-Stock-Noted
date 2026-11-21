@@ -9,7 +9,7 @@ class DatabaseHelper(context: Context) :
     SQLiteOpenHelper(context.applicationContext, DATABASE_NAME, null, DATABASE_VERSION) {
 
     companion object {
-        private const val DATABASE_VERSION = 3
+        private const val DATABASE_VERSION = 4
         private const val DATABASE_NAME = "Stoklar"
 
         private const val STOK_TABLE_NAME = "stoklar"
@@ -66,6 +66,12 @@ class DatabaseHelper(context: Context) :
         private const val AUD_BASARILI = "basarili"
         private const val AUD_TARIH = "tarih"
 
+        private const val LOCKOUT_TABLE_NAME = "login_lockouts"
+        private const val LOCK_KEY = "username_key"
+        private const val LOCK_FAILURES = "consecutive_failures"
+        private const val LOCK_COUNT = "lockout_count"
+        private const val LOCK_UNTIL = "locked_until"
+
         private const val DEFAULT_ADMIN_USERNAME = "admin"
         private const val DEFAULT_ADMIN_INITIAL_SECRET = "12345"
     }
@@ -107,6 +113,7 @@ class DatabaseHelper(context: Context) :
         createMovementsTable(db)
         createSuppliersTable(db)
         createAuditTable(db)
+        createLockoutsTable(db)
         seedDefaultAdminIfNeeded(db)
     }
 
@@ -131,6 +138,22 @@ class DatabaseHelper(context: Context) :
             createAuditTable(db)
             seedDefaultAdminIfNeeded(db)
         }
+        if (oldVersion < 4) {
+            createLockoutsTable(db)
+        }
+    }
+
+    private fun createLockoutsTable(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $LOCKOUT_TABLE_NAME (
+                $LOCK_KEY TEXT PRIMARY KEY,
+                $LOCK_FAILURES INTEGER NOT NULL DEFAULT 0,
+                $LOCK_COUNT INTEGER NOT NULL DEFAULT 0,
+                $LOCK_UNTIL INTEGER NOT NULL DEFAULT 0
+            )
+            """.trimIndent()
+        )
     }
 
     private fun createMovementsTable(db: SQLiteDatabase) {
@@ -719,6 +742,34 @@ class DatabaseHelper(context: Context) :
         return list
     }
 
+    fun getUserByUsername(username: String): UserModel? {
+        val trimmedUser = username.trim()
+        if (trimmedUser.isEmpty()) return null
+        val db = writableDatabase
+        seedDefaultAdminIfNeeded(db)
+        db.query(
+            USER_TABLE_NAME,
+            arrayOf(USER_USERNAME, USER_EMAIL, USER_BUSINESS, USER_ROLE, USER_IS_ACTIVE, USER_MUST_CHANGE_PWD, USER_CREATED_AT),
+            "LOWER($USER_USERNAME) = LOWER(?)",
+            arrayOf(trimmedUser),
+            null,
+            null,
+            null,
+            "1"
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) return null
+            return UserModel(
+                username = cursor.getString(cursor.getColumnIndexOrThrow(USER_USERNAME)) ?: "",
+                email = cursor.getString(cursor.getColumnIndexOrThrow(USER_EMAIL)) ?: "",
+                business = cursor.getString(cursor.getColumnIndexOrThrow(USER_BUSINESS)) ?: "",
+                role = UserRole.fromString(cursor.getString(cursor.getColumnIndexOrThrow(USER_ROLE))),
+                isActive = cursor.getInt(cursor.getColumnIndexOrThrow(USER_IS_ACTIVE)) != 0,
+                mustChangePassword = cursor.getInt(cursor.getColumnIndexOrThrow(USER_MUST_CHANGE_PWD)) != 0,
+                createdAt = cursor.getLong(cursor.getColumnIndexOrThrow(USER_CREATED_AT))
+            )
+        }
+    }
+
     fun kullaniciDurumGuncelle(username: String, isActive: Boolean): Boolean {
         val values = ContentValues().apply {
             put(USER_IS_ACTIVE, if (isActive) 1 else 0)
@@ -726,7 +777,7 @@ class DatabaseHelper(context: Context) :
         return writableDatabase.update(
             USER_TABLE_NAME,
             values,
-            "$USER_USERNAME = ?",
+            "LOWER($USER_USERNAME) = LOWER(?)",
             arrayOf(username.trim())
         ) > 0
     }
@@ -738,7 +789,7 @@ class DatabaseHelper(context: Context) :
         return writableDatabase.update(
             USER_TABLE_NAME,
             values,
-            "$USER_USERNAME = ?",
+            "LOWER($USER_USERNAME) = LOWER(?)",
             arrayOf(username.trim())
         ) > 0
     }
@@ -766,7 +817,7 @@ class DatabaseHelper(context: Context) :
                 USER_MUST_CHANGE_PWD,
                 USER_CREATED_AT
             ),
-            "$USER_USERNAME = ?",
+            "LOWER($USER_USERNAME) = LOWER(?)",
             arrayOf(trimmedUser),
             null,
             null,
@@ -775,6 +826,7 @@ class DatabaseHelper(context: Context) :
         ).use { cursor ->
             if (!cursor.moveToFirst()) return null
 
+            val canonicalUsername = cursor.getString(cursor.getColumnIndexOrThrow(USER_USERNAME)) ?: return null
             val isActive = cursor.getInt(cursor.getColumnIndexOrThrow(USER_IS_ACTIVE)) != 0
             if (!isActive) return null
 
@@ -793,12 +845,12 @@ class DatabaseHelper(context: Context) :
                     USER_TABLE_NAME,
                     upgradeValues,
                     "$USER_USERNAME = ?",
-                    arrayOf(trimmedUser)
+                    arrayOf(canonicalUsername)
                 )
             }
 
             return UserModel(
-                username = cursor.getString(cursor.getColumnIndexOrThrow(USER_USERNAME)),
+                username = canonicalUsername,
                 email = cursor.getString(cursor.getColumnIndexOrThrow(USER_EMAIL)) ?: "",
                 business = cursor.getString(cursor.getColumnIndexOrThrow(USER_BUSINESS)) ?: "",
                 role = role,
@@ -814,10 +866,10 @@ class DatabaseHelper(context: Context) :
         if (trimmedUser.isEmpty() || currentPassword.isEmpty() || newPassword.isEmpty()) return false
 
         val db = writableDatabase
-        db.query(
+        val canonicalUsername = db.query(
             USER_TABLE_NAME,
-            arrayOf(USER_PASSWORD),
-            "$USER_USERNAME = ?",
+            arrayOf(USER_USERNAME, USER_PASSWORD),
+            "LOWER($USER_USERNAME) = LOWER(?)",
             arrayOf(trimmedUser),
             null,
             null,
@@ -827,6 +879,7 @@ class DatabaseHelper(context: Context) :
             if (!cursor.moveToFirst()) return false
             val storedPassword = cursor.getString(cursor.getColumnIndexOrThrow(USER_PASSWORD)) ?: ""
             if (!PasswordHasher.verify(currentPassword, storedPassword)) return false
+            cursor.getString(cursor.getColumnIndexOrThrow(USER_USERNAME)) ?: return false
         }
 
         val values = ContentValues().apply {
@@ -837,8 +890,56 @@ class DatabaseHelper(context: Context) :
             USER_TABLE_NAME,
             values,
             "$USER_USERNAME = ?",
-            arrayOf(trimmedUser)
+            arrayOf(canonicalUsername)
         ) > 0
+    }
+
+    fun createRateLimiter(): LoginRateLimiter {
+        val store = object : LockoutStateStore {
+            override fun get(key: String): LockoutRecord? {
+                readableDatabase.query(
+                    LOCKOUT_TABLE_NAME,
+                    arrayOf(LOCK_FAILURES, LOCK_COUNT, LOCK_UNTIL),
+                    "$LOCK_KEY = ?",
+                    arrayOf(key),
+                    null,
+                    null,
+                    null,
+                    "1"
+                ).use { cursor ->
+                    if (!cursor.moveToFirst()) return null
+                    return LockoutRecord(
+                        consecutiveFailures = cursor.getInt(cursor.getColumnIndexOrThrow(LOCK_FAILURES)),
+                        lockoutCount = cursor.getInt(cursor.getColumnIndexOrThrow(LOCK_COUNT)),
+                        lockedUntilMillis = cursor.getLong(cursor.getColumnIndexOrThrow(LOCK_UNTIL))
+                    )
+                }
+            }
+
+            override fun put(key: String, record: LockoutRecord) {
+                val values = ContentValues().apply {
+                    put(LOCK_KEY, key)
+                    put(LOCK_FAILURES, record.consecutiveFailures)
+                    put(LOCK_COUNT, record.lockoutCount)
+                    put(LOCK_UNTIL, record.lockedUntilMillis)
+                }
+                writableDatabase.insertWithOnConflict(
+                    LOCKOUT_TABLE_NAME,
+                    null,
+                    values,
+                    SQLiteDatabase.CONFLICT_REPLACE
+                )
+            }
+
+            override fun remove(key: String) {
+                writableDatabase.delete(LOCKOUT_TABLE_NAME, "$LOCK_KEY = ?", arrayOf(key))
+            }
+
+            override fun clear() {
+                writableDatabase.delete(LOCKOUT_TABLE_NAME, null, null)
+            }
+        }
+        return LoginRateLimiter(store = store)
     }
 
     fun guvenlikKaydiEkle(

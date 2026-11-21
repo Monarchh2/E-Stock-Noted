@@ -17,6 +17,44 @@ data class LockoutStatus(
     val failedAttempts: Int = 0
 )
 
+data class LockoutRecord(
+    val consecutiveFailures: Int = 0,
+    val lockoutCount: Int = 0,
+    val lockedUntilMillis: Long = 0L
+)
+
+/**
+ * Persistence abstraction for brute-force lockout state so lockouts survive app restarts.
+ */
+interface LockoutStateStore {
+    fun get(key: String): LockoutRecord?
+    fun put(key: String, record: LockoutRecord)
+    fun remove(key: String)
+    fun clear()
+}
+
+class InMemoryLockoutStore : LockoutStateStore {
+    private val map = mutableMapOf<String, LockoutRecord>()
+
+    @Synchronized
+    override fun get(key: String): LockoutRecord? = map[key]
+
+    @Synchronized
+    override fun put(key: String, record: LockoutRecord) {
+        map[key] = record
+    }
+
+    @Synchronized
+    override fun remove(key: String) {
+        map.remove(key)
+    }
+
+    @Synchronized
+    override fun clear() {
+        map.clear()
+    }
+}
+
 /**
  * Enforces strong password complexity rules.
  */
@@ -44,26 +82,19 @@ object PasswordPolicy {
 }
 
 /**
- * In-memory brute-force protection with escalating lockouts per normalized username.
- * Injectable clock allows deterministic testing without sleeps.
+ * Brute-force protection with escalating lockouts per normalized username.
+ * Backed by LockoutStateStore (SQLite in production, InMemoryLockoutStore in tests).
  */
 class LoginRateLimiter(
     private val maxFailures: Int = DEFAULT_MAX_FAILURES,
     private val baseLockoutMillis: Long = DEFAULT_LOCKOUT_MILLIS,
+    private val store: LockoutStateStore = InMemoryLockoutStore(),
     private val clock: () -> Long = { System.currentTimeMillis() }
 ) {
-    private data class AttemptRecord(
-        var consecutiveFailures: Int = 0,
-        var lockoutCount: Int = 0,
-        var lockedUntilMillis: Long = 0L
-    )
-
-    private val records = mutableMapOf<String, AttemptRecord>()
-
     @Synchronized
     fun checkStatus(username: String): LockoutStatus {
         val key = normalizeKey(username)
-        val record = records[key] ?: return LockoutStatus(isLocked = false)
+        val record = store.get(key) ?: return LockoutStatus(isLocked = false)
         val now = clock()
         if (record.lockedUntilMillis > now) {
             val remainingSec = ((record.lockedUntilMillis - now) + 999L) / 1000L
@@ -74,9 +105,11 @@ class LoginRateLimiter(
             )
         }
         if (record.lockedUntilMillis > 0L) {
-            // Lockout expired; reset consecutive count for next cycle while preserving lockoutCount escalation
-            record.lockedUntilMillis = 0L
-            record.consecutiveFailures = 0
+            store.put(
+                key,
+                record.copy(consecutiveFailures = 0, lockedUntilMillis = 0L)
+            )
+            return LockoutStatus(isLocked = false, failedAttempts = 0)
         }
         return LockoutStatus(isLocked = false, failedAttempts = record.consecutiveFailures)
     }
@@ -84,35 +117,48 @@ class LoginRateLimiter(
     @Synchronized
     fun recordFailure(username: String): LockoutStatus {
         val key = normalizeKey(username)
-        val record = records.getOrPut(key) { AttemptRecord() }
+        val existing = store.get(key) ?: LockoutRecord()
         val now = clock()
-        if (record.lockedUntilMillis > now) {
-            val remainingSec = ((record.lockedUntilMillis - now) + 999L) / 1000L
-            return LockoutStatus(true, remainingSec, record.consecutiveFailures)
+        if (existing.lockedUntilMillis > now) {
+            val remainingSec = ((existing.lockedUntilMillis - now) + 999L) / 1000L
+            return LockoutStatus(true, remainingSec, existing.consecutiveFailures)
         }
-        record.consecutiveFailures += 1
-        if (record.consecutiveFailures >= maxFailures) {
-            record.lockoutCount += 1
+        val baseFailures = if (existing.lockedUntilMillis > 0L) 0 else existing.consecutiveFailures
+        val nextFailures = baseFailures + 1
+        if (nextFailures >= maxFailures) {
+            val nextLockoutCount = existing.lockoutCount + 1
             val multiplier = when {
-                record.lockoutCount <= 1 -> 1L
-                record.lockoutCount == 2 -> 3L
+                nextLockoutCount <= 1 -> 1L
+                nextLockoutCount == 2 -> 3L
                 else -> 5L
             }
-            record.lockedUntilMillis = now + (baseLockoutMillis * multiplier)
-            val remainingSec = ((record.lockedUntilMillis - now) + 999L) / 1000L
-            return LockoutStatus(true, remainingSec, record.consecutiveFailures)
+            val lockedUntil = now + (baseLockoutMillis * multiplier)
+            store.put(
+                key,
+                LockoutRecord(
+                    consecutiveFailures = nextFailures,
+                    lockoutCount = nextLockoutCount,
+                    lockedUntilMillis = lockedUntil
+                )
+            )
+            val remainingSec = ((lockedUntil - now) + 999L) / 1000L
+            return LockoutStatus(true, remainingSec, nextFailures)
         }
-        return LockoutStatus(false, 0L, record.consecutiveFailures)
+        store.put(
+            key,
+            existing.copy(consecutiveFailures = nextFailures, lockedUntilMillis = 0L)
+        )
+        return LockoutStatus(false, 0L, nextFailures)
     }
 
     @Synchronized
     fun recordSuccess(username: String) {
-        records.remove(normalizeKey(username))
+        store.remove(normalizeKey(username))
     }
 
     @Synchronized
     fun clearAll() {
-        records.clear()
+        store.clear()
     }
 
     private fun normalizeKey(username: String): String =
@@ -121,8 +167,6 @@ class LoginRateLimiter(
     companion object {
         const val DEFAULT_MAX_FAILURES = 5
         const val DEFAULT_LOCKOUT_MILLIS = 60_000L
-
-        val shared: LoginRateLimiter = LoginRateLimiter()
     }
 }
 
@@ -140,6 +184,37 @@ object AccessGuard {
         if (!role.canManageUsers) {
             throw SecurityException("Yetkisiz işlem: yönetici yetkisi gerekli ($role).")
         }
+    }
+}
+
+/**
+ * Verifies that an active session has not expired and that the account is still active in SQLite,
+ * syncing live role changes immediately.
+ */
+object SessionGuard {
+    fun verifyActiveSession(
+        sessionManager: SessionManager,
+        database: DatabaseHelper,
+        nowMillis: Long = System.currentTimeMillis()
+    ): UserModel? {
+        if (!sessionManager.isLoggedIn() || sessionManager.isSessionExpired(nowMillis)) {
+            sessionManager.clearSession()
+            return null
+        }
+        val username = sessionManager.getUsername()
+        val liveUser = database.getUserByUsername(username)
+        if (liveUser == null || !liveUser.isActive) {
+            database.guvenlikKaydiEkle(
+                "OTURUM_IPTAL",
+                username,
+                "Pasif veya silinmiş hesabın oturumu sonlandırıldı",
+                false
+            )
+            sessionManager.clearSession()
+            return null
+        }
+        sessionManager.saveSession(liveUser, nowMillis)
+        return liveUser
     }
 }
 

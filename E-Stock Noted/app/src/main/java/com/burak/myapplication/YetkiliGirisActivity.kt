@@ -35,7 +35,8 @@ class YetkiliGirisActivity : AppCompatActivity() {
             if (password.isBlank()) getString(R.string.err_required_field) else null
         if (username.isEmpty() || password.isBlank()) return
 
-        val lockStatus = LoginRateLimiter.shared.checkStatus(username)
+        val rateLimiter = dbHelper.createRateLimiter()
+        val lockStatus = rateLimiter.checkStatus(username)
         if (lockStatus.isLocked) {
             Toast.makeText(
                 this,
@@ -51,7 +52,7 @@ class YetkiliGirisActivity : AppCompatActivity() {
             allowedRoles = setOf(UserRole.ADMIN, UserRole.DEPO)
         )
         if (adminUser != null) {
-            LoginRateLimiter.shared.recordSuccess(username)
+            rateLimiter.recordSuccess(username)
             dbHelper.guvenlikKaydiEkle("YETKILI_GIRIS", adminUser.username, "Yetkili girişi (${adminUser.role.name})", true)
             sessionManager.saveSession(adminUser)
             Toast.makeText(this, R.string.msg_login_success, Toast.LENGTH_SHORT).show()
@@ -60,7 +61,7 @@ class YetkiliGirisActivity : AppCompatActivity() {
             }
             startActivity(intent)
         } else {
-            val afterFail = LoginRateLimiter.shared.recordFailure(username)
+            val afterFail = rateLimiter.recordFailure(username)
             dbHelper.guvenlikKaydiEkle(
                 if (afterFail.isLocked) "HESAP_KILIT" else "HATALI_YETKILI_GIRIS",
                 username,

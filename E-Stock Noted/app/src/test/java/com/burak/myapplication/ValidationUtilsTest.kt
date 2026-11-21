@@ -127,9 +127,13 @@ class ValidationUtilsTest {
     }
 
     @Test
-    fun validatePasswordChange_enforcesStrongRules() {
+    fun validatePasswordChange_enforcesStrongRulesAndRejectsReuse() {
         val ok = ValidationUtils.validatePasswordChange("12345", "YeniSifre2026", "YeniSifre2026")
         assertTrue(ok.isValid)
+
+        val reused = ValidationUtils.validatePasswordChange("AyniSifre2026", "AyniSifre2026", "AyniSifre2026")
+        assertFalse(reused.isValid)
+        assertEquals(ValidationError.PASSWORD_REUSED, reused.newPasswordError)
 
         val bad = ValidationUtils.validatePasswordChange("", "1234", "5678")
         assertFalse(bad.isValid)

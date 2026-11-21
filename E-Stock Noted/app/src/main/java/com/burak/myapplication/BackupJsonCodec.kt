@@ -1,5 +1,6 @@
 package com.burak.myapplication
 
+import java.security.MessageDigest
 import java.util.Locale
 
 data class BackupPayload(
@@ -10,8 +11,7 @@ data class BackupPayload(
 )
 
 /**
- * Pure Kotlin JSON backup codec with strict schema and bounds validation.
- * Avoids Android org.json stubs so it is 100% testable in standard JVM unit tests.
+ * Pure Kotlin JSON backup codec with SHA-256 tamper-detection checksum and strict schema bounds.
  */
 object BackupJsonCodec {
     const val CURRENT_SCHEMA_VERSION = 3
@@ -22,8 +22,17 @@ object BackupJsonCodec {
         suppliers: List<TedarikciModel>,
         exportedAt: Long = System.currentTimeMillis()
     ): String {
+        val dataJson = encodeBody(products, suppliers, exportedAt)
+        val digestHex = sha256Hex(dataJson)
+        return "{\n  \"integritySha256\": \"$digestHex\",\n$dataJson}\n"
+    }
+
+    private fun encodeBody(
+        products: List<UrunModel>,
+        suppliers: List<TedarikciModel>,
+        exportedAt: Long
+    ): String {
         val sb = StringBuilder()
-        sb.append("{\n")
         sb.append("  \"schemaVersion\": $CURRENT_SCHEMA_VERSION,\n")
         sb.append("  \"exportedAt\": $exportedAt,\n")
         sb.append("  \"products\": [\n")
@@ -59,7 +68,6 @@ object BackupJsonCodec {
             sb.append("\n")
         }
         sb.append("  ]\n")
-        sb.append("}\n")
         return sb.toString()
     }
 
@@ -136,10 +144,27 @@ object BackupJsonCodec {
                 )
             }
 
+            // Verify SHA-256 tamper checksum when present (required for schemaVersion >= 3)
+            val storedDigest = root["integritySha256"] as? String
+            if (schemaVersion >= 3) {
+                if (storedDigest.isNullOrBlank()) return null
+                val recomputed = sha256Hex(encodeBody(products, suppliers, exportedAt))
+                val matches = MessageDigest.isEqual(
+                    storedDigest.toByteArray(Charsets.UTF_8),
+                    recomputed.toByteArray(Charsets.UTF_8)
+                )
+                if (!matches) return null
+            }
+
             BackupPayload(schemaVersion, exportedAt, products, suppliers)
         } catch (_: Exception) {
             null
         }
+    }
+
+    private fun sha256Hex(content: String): String {
+        val bytes = MessageDigest.getInstance("SHA-256").digest(content.toByteArray(Charsets.UTF_8))
+        return bytes.joinToString("") { "%02x".format(it) }
     }
 
     private fun quote(s: String): String {

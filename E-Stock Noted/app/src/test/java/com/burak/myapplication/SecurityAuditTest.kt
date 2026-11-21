@@ -57,6 +57,24 @@ class SecurityAuditTest {
     }
 
     @Test
+    fun persistentLockoutStore_survivesAppRestartSimulation() {
+        var fakeNow = 5_000_000L
+        val persistentStore = InMemoryLockoutStore()
+
+        // First app process hits 5 failures and gets locked
+        val limiterBeforeRestart = LoginRateLimiter(store = persistentStore, clock = { fakeNow })
+        repeat(5) { limiterBeforeRestart.recordFailure("depoUser") }
+        assertTrue(limiterBeforeRestart.checkStatus("depoUser").isLocked)
+
+        // Simulated force-stop & relaunch: brand-new LoginRateLimiter backed by same store
+        fakeNow += 15_000L
+        val limiterAfterRestart = LoginRateLimiter(store = persistentStore, clock = { fakeNow })
+        val status = limiterAfterRestart.checkStatus("DEPOUSER")
+        assertTrue("Lockout must persist across restart", status.isLocked)
+        assertEquals(45L, status.remainingSeconds)
+    }
+
+    @Test
     fun csvFormulaInjection_neutralizesAllDangerousPrefixes() {
         val payloads = listOf(
             "=CMD|' /C calc'!A0",

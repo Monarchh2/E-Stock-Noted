@@ -135,9 +135,20 @@
                         android:id="@+id/btnExportJsonBackup"
                         android:layout_width="match_parent"
                         android:layout_height="50dp"
+                        android:layout_marginBottom="10dp"
                         android:text="@string/btn_export_backup_json"
                         app:backgroundTint="@color/brand_navy"
                         app:cornerRadius="12dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnImportJsonBackup"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="50dp"
+                        android:text="@string/btn_import_backup_json"
+                        android:textColor="@color/brand_navy"
+                        app:cornerRadius="12dp"
+                        app:strokeColor="@color/brand_navy" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>

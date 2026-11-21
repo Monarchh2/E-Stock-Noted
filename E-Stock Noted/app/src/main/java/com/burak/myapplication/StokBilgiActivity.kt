@@ -37,44 +37,46 @@ class StokBilgiActivity : AppCompatActivity() {
         SecurityWindowHelper.applySecureFlag(this)
 
         sessionManager = SessionManager(this)
-        if (!sessionManager.isLoggedIn() || sessionManager.isSessionExpired()) {
-            sessionManager.clearSession()
+        database = DatabaseHelper(this)
+        val activeUser = SessionGuard.verifyActiveSession(sessionManager, database)
+        if (activeUser == null) {
             redirectToMain()
             return
         }
-        sessionManager.touchActivity()
 
         binding = ActivityStokBilgiBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        database = DatabaseHelper(this)
-        canManageStock = sessionManager.canManageStock()
-        isAdmin = sessionManager.isAdmin()
+        canManageStock = activeUser.role.canManageStock
+        isAdmin = activeUser.role.canManageUsers
 
         setupToolbar()
         setupRecyclerView()
         setupFiltersAndSearch()
         setupFab()
 
-        if (sessionManager.mustChangePassword()) {
+        if (activeUser.mustChangePassword) {
             Toast.makeText(this, R.string.msg_must_change_password, Toast.LENGTH_LONG).show()
-            showChangePasswordDialog()
+            showChangePasswordDialog(mandatory = true)
         }
     }
 
     override fun onResume() {
         super.onResume()
-        if (!::sessionManager.isInitialized) return
-        if (!sessionManager.isLoggedIn() || sessionManager.isSessionExpired()) {
-            sessionManager.clearSession()
+        if (!::sessionManager.isInitialized || !::database.isInitialized) return
+        val activeUser = SessionGuard.verifyActiveSession(sessionManager, database)
+        if (activeUser == null) {
             Toast.makeText(this, R.string.msg_session_expired, Toast.LENGTH_LONG).show()
             redirectToMain()
             return
         }
-        sessionManager.touchActivity()
-        if (::database.isInitialized) {
-            refreshData()
+        val roleChanged =
+            canManageStock != activeUser.role.canManageStock || isAdmin != activeUser.role.canManageUsers
+        if (roleChanged) {
+            recreate()
+            return
         }
+        refreshData()
     }
 
     private fun setupToolbar() {
@@ -383,15 +385,26 @@ class StokBilgiActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun showChangePasswordDialog() {
+    private fun showChangePasswordDialog(mandatory: Boolean = false) {
         val dialogBinding = DialogChangePasswordBinding.inflate(layoutInflater)
 
-        val dialog = MaterialAlertDialogBuilder(this)
+        val builder = MaterialAlertDialogBuilder(this)
             .setTitle(R.string.dialog_change_password_title)
             .setView(dialogBinding.root)
+            .setCancelable(!mandatory)
             .setPositiveButton(R.string.btn_update, null)
-            .setNegativeButton(R.string.btn_cancel, null)
-            .create()
+
+        if (mandatory) {
+            builder.setNegativeButton(R.string.menu_logout) { _, _ ->
+                sessionManager.clearSession()
+                redirectToMain()
+            }
+        } else {
+            builder.setNegativeButton(R.string.btn_cancel, null)
+        }
+
+        val dialog = builder.create()
+        dialog.setCanceledOnTouchOutside(!mandatory)
 
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
@@ -645,6 +658,7 @@ class StokBilgiActivity : AppCompatActivity() {
     private fun errorMessage(error: ValidationError?): String? = when (error) {
         ValidationError.REQUIRED -> getString(R.string.err_required_field)
         ValidationError.PASSWORD_TOO_WEAK -> getString(R.string.err_password_weak)
+        ValidationError.PASSWORD_REUSED -> getString(R.string.err_password_reused)
         ValidationError.PASSWORD_MISMATCH -> getString(R.string.err_password_mismatch)
         ValidationError.INVALID_QUANTITY -> getString(R.string.err_invalid_quantity)
         ValidationError.QUANTITY_OVERFLOW -> getString(R.string.err_quantity_overflow)
