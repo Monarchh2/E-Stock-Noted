@@ -90,6 +90,7 @@ enum class ValidationError {
     REQUIRED,
     INVALID_EMAIL,
     PASSWORD_TOO_WEAK,
+    PASSWORD_REUSED,
     PASSWORD_MISMATCH,
     INVALID_QUANTITY,
     QUANTITY_OVERFLOW,
@@ -272,6 +273,7 @@ object ValidationUtils {
         val currentError = if (currentPasswordRaw.isBlank()) ValidationError.REQUIRED else null
         val newError = when {
             newPasswordRaw.isBlank() -> ValidationError.REQUIRED
+            newPasswordRaw == currentPasswordRaw -> ValidationError.PASSWORD_REUSED
             !PasswordPolicy.isStrong(newPasswordRaw) -> ValidationError.PASSWORD_TOO_WEAK
             else -> null
         }

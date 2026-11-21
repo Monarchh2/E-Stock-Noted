@@ -248,4 +248,12 @@
     <string name="empty_audit_log">Henüz güvenlik denetim kaydı bulunmuyor.</string>
     <string name="label_user_status_active">Aktif</string>
     <string name="label_user_status_inactive">Pasif</string>
+    <string name="err_password_reused">Yeni şifre mevcut şifrenizle aynı olamaz.</string>
+    <string name="btn_import_backup_json">JSON Yedekten Geri Yükle</string>
+    <string name="msg_backup_restored" tools:ignore="PluralsCandidate">Yedek doğrulandı ve %1$d yeni ürün içe aktarıldı.</string>
+    <string name="msg_backup_invalid">Yedek dosyası geçersiz veya bütünlük doğrulamasından (SHA-256) geçemedi.</string>
+    <string name="dialog_staff_action_title">Personel İşlemi: %1$s</string>
+    <string name="action_toggle_status">Hesabı Aktif / Pasif Yap</string>
+    <string name="action_change_role">Yetki Rolünü Değiştir</string>
+    <string name="msg_staff_role_updated">Personel rolü güncellendi.</string>
 </resources>

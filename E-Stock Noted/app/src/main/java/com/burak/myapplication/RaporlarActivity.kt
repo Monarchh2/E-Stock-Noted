@@ -23,16 +23,14 @@ class RaporlarActivity : AppCompatActivity() {
         SecurityWindowHelper.applySecureFlag(this)
 
         sessionManager = SessionManager(this)
-        if (!sessionManager.isLoggedIn() || sessionManager.isSessionExpired()) {
-            sessionManager.clearSession()
+        database = DatabaseHelper(this)
+        if (SessionGuard.verifyActiveSession(sessionManager, database) == null) {
             finish()
             return
         }
-        sessionManager.touchActivity()
 
         binding = ActivityRaporlarBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        database = DatabaseHelper(this)
 
         binding.toolbar.setNavigationOnClickListener { finish() }
         binding.toolbar.setOnMenuItemClickListener { item ->

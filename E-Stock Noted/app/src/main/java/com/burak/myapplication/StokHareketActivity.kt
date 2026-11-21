@@ -19,10 +19,16 @@ class StokHareketActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         SecurityWindowHelper.applySecureFlag(this)
+
+        val sessionManager = SessionManager(this)
+        database = DatabaseHelper(this)
+        if (SessionGuard.verifyActiveSession(sessionManager, database) == null) {
+            finish()
+            return
+        }
+
         binding = ActivityStokHareketBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        database = DatabaseHelper(this)
 
         binding.toolbar.setNavigationOnClickListener {
             finish()

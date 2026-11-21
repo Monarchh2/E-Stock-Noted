@@ -30,17 +30,16 @@ class TedarikciActivity : AppCompatActivity() {
         SecurityWindowHelper.applySecureFlag(this)
 
         sessionManager = SessionManager(this)
-        if (!sessionManager.isLoggedIn() || sessionManager.isSessionExpired()) {
-            sessionManager.clearSession()
+        database = DatabaseHelper(this)
+        val activeUser = SessionGuard.verifyActiveSession(sessionManager, database)
+        if (activeUser == null) {
             finish()
             return
         }
-        sessionManager.touchActivity()
 
         binding = ActivityTedarikciBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        database = DatabaseHelper(this)
-        canEdit = sessionManager.canManageStock()
+        canEdit = activeUser.role.canManageStock
 
         binding.toolbar.setNavigationOnClickListener { finish() }
 

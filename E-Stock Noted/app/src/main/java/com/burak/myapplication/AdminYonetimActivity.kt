@@ -2,12 +2,14 @@ package com.burak.myapplication
 
 import android.content.Intent
 import android.content.res.ColorStateList
+import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -29,18 +31,30 @@ class AdminYonetimActivity : AppCompatActivity() {
     private lateinit var staffAdapter: StaffAdapter
     private val auditAdapter = AuditLogAdapter()
 
+    private val importBackupLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+            if (uri != null) {
+                importJsonBackup(uri)
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         SecurityWindowHelper.applySecureFlag(this)
 
         sessionManager = SessionManager(this)
         database = DatabaseHelper(this)
+        val activeUser = SessionGuard.verifyActiveSession(sessionManager, database)
+        if (activeUser == null) {
+            finish()
+            return
+        }
         try {
-            AccessGuard.requireAdmin(sessionManager.getRole())
+            AccessGuard.requireAdmin(activeUser.role)
         } catch (_: SecurityException) {
             database.guvenlikKaydiEkle(
                 "YETKISIZ_ERISIM",
-                sessionManager.getUsername(),
+                activeUser.username,
                 "Yönetim paneline yetkisiz erişim engellendi",
                 false
             )
@@ -49,20 +63,13 @@ class AdminYonetimActivity : AppCompatActivity() {
             return
         }
 
-        if (!sessionManager.isLoggedIn() || sessionManager.isSessionExpired()) {
-            sessionManager.clearSession()
-            finish()
-            return
-        }
-        sessionManager.touchActivity()
-
         binding = ActivityAdminYonetimBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         binding.toolbar.setNavigationOnClickListener { finish() }
 
         staffAdapter = StaffAdapter { user ->
-            toggleStaffStatus(user)
+            showStaffActionDialog(user)
         }
         binding.rvStaff.layoutManager = LinearLayoutManager(this)
         binding.rvStaff.adapter = staffAdapter
@@ -72,6 +79,9 @@ class AdminYonetimActivity : AppCompatActivity() {
 
         binding.btnAddStaff.setOnClickListener { showAddStaffDialog() }
         binding.btnExportJsonBackup.setOnClickListener { exportJsonBackup() }
+        binding.btnImportJsonBackup.setOnClickListener {
+            importBackupLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+        }
 
         binding.chipGroupAdminTab.setOnCheckedStateChangeListener { _, checkedIds ->
             when (checkedIds.firstOrNull()) {
@@ -121,11 +131,29 @@ class AdminYonetimActivity : AppCompatActivity() {
         )
     }
 
-    private fun toggleStaffStatus(user: UserModel) {
+    private fun showStaffActionDialog(user: UserModel) {
         if (user.username.equals(sessionManager.getUsername(), ignoreCase = true)) {
             Toast.makeText(this, R.string.msg_cannot_deactivate_self, Toast.LENGTH_SHORT).show()
             return
         }
+        val actions = arrayOf(
+            getString(R.string.action_toggle_status),
+            getString(R.string.action_change_role)
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.dialog_staff_action_title, user.username))
+            .setItems(actions) { _, which ->
+                if (which == 0) {
+                    toggleStaffStatus(user)
+                } else {
+                    showChangeRoleDialog(user)
+                }
+            }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
+    }
+
+    private fun toggleStaffStatus(user: UserModel) {
         val nextActive = !user.isActive
         database.kullaniciDurumGuncelle(user.username, nextActive)
         database.guvenlikKaydiEkle(
@@ -136,6 +164,36 @@ class AdminYonetimActivity : AppCompatActivity() {
         )
         Toast.makeText(this, R.string.msg_staff_status_updated, Toast.LENGTH_SHORT).show()
         refreshStaff()
+    }
+
+    private fun showChangeRoleDialog(user: UserModel) {
+        val roleLabels = arrayOf(
+            getString(R.string.role_admin),
+            getString(R.string.role_depo),
+            getString(R.string.role_user_readonly)
+        )
+        val roleValues = arrayOf(UserRole.ADMIN, UserRole.DEPO, UserRole.USER)
+        val checkedIdx = roleValues.indexOf(user.role).coerceAtLeast(0)
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.action_change_role))
+            .setSingleChoiceItems(roleLabels, checkedIdx) { dialog, which ->
+                val newRole = roleValues[which]
+                if (newRole != user.role) {
+                    database.kullaniciRolGuncelle(user.username, newRole)
+                    database.guvenlikKaydiEkle(
+                        "ROL_DEGISIM",
+                        sessionManager.getUsername(),
+                        "${user.username}: ${user.role.name} -> ${newRole.name}",
+                        true
+                    )
+                    Toast.makeText(this, R.string.msg_staff_role_updated, Toast.LENGTH_SHORT).show()
+                    refreshStaff()
+                }
+                dialog.dismiss()
+            }
+            .setNegativeButton(R.string.btn_cancel, null)
+            .show()
     }
 
     private fun showAddStaffDialog() {
@@ -238,6 +296,43 @@ class AdminYonetimActivity : AppCompatActivity() {
         }
     }
 
+    private fun importJsonBackup(uri: Uri) {
+        try {
+            val json = contentResolver.openInputStream(uri)?.use { stream ->
+                val bytes = stream.readBytes()
+                if (bytes.size > BackupJsonCodec.MAX_BACKUP_BYTES) return@use null
+                bytes.toString(Charsets.UTF_8)
+            }
+            val payload = json?.let { BackupJsonCodec.decode(it) }
+            if (payload == null) {
+                database.guvenlikKaydiEkle(
+                    "YEDEK_GERI_YUKLE",
+                    sessionManager.getUsername(),
+                    "Geçersiz veya bozulmuş yedek dosyası reddedildi",
+                    false
+                )
+                Toast.makeText(this, R.string.msg_backup_invalid, Toast.LENGTH_LONG).show()
+                return
+            }
+
+            val importedCount = database.yedektenGeriYukle(payload, sessionManager.getUsername())
+            database.guvenlikKaydiEkle(
+                "YEDEK_GERI_YUKLE",
+                sessionManager.getUsername(),
+                "$importedCount yeni ürün geri yüklendi",
+                true
+            )
+            Toast.makeText(
+                this,
+                getString(R.string.msg_backup_restored, importedCount),
+                Toast.LENGTH_LONG
+            ).show()
+            refreshBackupSummary()
+        } catch (_: Exception) {
+            Toast.makeText(this, R.string.msg_backup_invalid, Toast.LENGTH_LONG).show()
+        }
+    }
+
     private fun errText(error: ValidationError?): String? = when (error) {
         ValidationError.REQUIRED -> getString(R.string.err_required_field)
         ValidationError.INVALID_EMAIL -> getString(R.string.err_invalid_email)
@@ -247,7 +342,7 @@ class AdminYonetimActivity : AppCompatActivity() {
     }
 
     private class StaffAdapter(
-        private val onToggleActive: (UserModel) -> Unit
+        private val onStaffClick: (UserModel) -> Unit
     ) : ListAdapter<UserModel, StaffAdapter.VH>(DIFF) {
 
         class VH(val binding: ItemSimpleCardBinding) : RecyclerView.ViewHolder(binding.root)
@@ -274,7 +369,7 @@ class AdminYonetimActivity : AppCompatActivity() {
                 tvCardBadge.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(ctx, bg))
                 tvCardSubtitle.text = ctx.getString(R.string.subtitle_session_format, u.business, u.email)
                 tvCardMeta.visibility = View.GONE
-                root.setOnClickListener { onToggleActive(u) }
+                root.setOnClickListener { onStaffClick(u) }
             }
         }
 

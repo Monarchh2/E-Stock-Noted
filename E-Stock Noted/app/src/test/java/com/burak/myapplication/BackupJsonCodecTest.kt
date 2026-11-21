@@ -59,4 +59,21 @@ class BackupJsonCodecTest {
             )
         )
     }
+
+    @Test
+    fun decode_rejectsTamperedOrUnsignedV3Backups() {
+        val products = listOf(
+            UrunModel(1, "Laptop", "LP-01", "Elektronik", 5, 2, 25000.0, 20000.0)
+        )
+        val validJson = BackupJsonCodec.encode(products, emptyList(), exportedAt = 999L)
+        assertNotNull(BackupJsonCodec.decode(validJson))
+
+        // Tamper quantity from 5 to 99 without updating integritySha256
+        val tampered = validJson.replace("\"adet\": 5", "\"adet\": 99")
+        assertNull("Tampered backup must be rejected", BackupJsonCodec.decode(tampered))
+
+        // Unsigned v3 backup (missing integritySha256) must be rejected
+        val unsignedV3 = """{"schemaVersion": 3, "exportedAt": 999, "products": [], "suppliers": []}"""
+        assertNull("Unsigned v3 backup must be rejected", BackupJsonCodec.decode(unsignedV3))
+    }
 }

@@ -18,21 +18,19 @@ class StokActivity : AppCompatActivity() {
 
         sessionManager = SessionManager(this)
         dataBase = DatabaseHelper(this)
+        val activeUser = SessionGuard.verifyActiveSession(sessionManager, dataBase)
+        if (activeUser == null) {
+            finish()
+            return
+        }
         try {
-            AccessGuard.requireStockWrite(sessionManager.getRole())
+            AccessGuard.requireStockWrite(activeUser.role)
         } catch (_: SecurityException) {
-            dataBase.guvenlikKaydiEkle("YETKISIZ_ERISIM", sessionManager.getUsername(), "Stok ekleme ekranına yetkisiz erişim", false)
+            dataBase.guvenlikKaydiEkle("YETKISIZ_ERISIM", activeUser.username, "Stok ekleme ekranına yetkisiz erişim", false)
             Toast.makeText(this, R.string.msg_admin_only, Toast.LENGTH_SHORT).show()
             finish()
             return
         }
-
-        if (!sessionManager.isLoggedIn() || sessionManager.isSessionExpired()) {
-            sessionManager.clearSession()
-            finish()
-            return
-        }
-        sessionManager.touchActivity()
 
         binding = ActivityStokBinding.inflate(layoutInflater)
         setContentView(binding.root)
